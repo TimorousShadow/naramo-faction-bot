@@ -1,4 +1,12 @@
 // TimorousShadow
-export const MAIN_GUILD_ID = "1462393527987212451";
-export const GLOBAL_BAN_ROLE_ID = "1462395487658184806";
-export const GLOBAL_BAN_LOG_CHANNEL_ID = "1573818593999593514";
+import config from "../config.json" with { type: "json" };
+
+export interface ServerEntry {
+  id: string;
+  name: string;
+}
+
+export const MAIN_GUILD_ID: string = config.mainGuildId;
+export const GLOBAL_BAN_ROLE_ID: string = config.globalBan.roleId;
+export const GLOBAL_BAN_LOG_CHANNEL_ID: string = config.globalBan.logChannelId;
+export const SERVERS: readonly ServerEntry[] = config.servers;

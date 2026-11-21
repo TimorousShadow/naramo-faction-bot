@@ -8,10 +8,9 @@ import {
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type Client,
-  type Guild,
   type User,
 } from "discord.js";
-import { GLOBAL_BAN_LOG_CHANNEL_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID } from "../config.js";
+import { GLOBAL_BAN_LOG_CHANNEL_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS, type ServerEntry } from "../config.js";
 import { button, errorPanel, line, panel, privateV2, v2 } from "../ui.js";
 
 const TTL_MS = 5 * 60 * 1000;
@@ -23,13 +22,13 @@ interface Pending {
   expiresAt: number;
 }
 
-type Outcome = { guild: Guild; status: "banned" | "already" | "failed"; detail?: string };
+type Outcome = { server: ServerEntry; status: "banned" | "already" | "failed" | "missing"; detail?: string };
 
 const pending = new Map<string, Pending>();
 
 export const globalbanCommand = new SlashCommandBuilder()
   .setName("globalban")
-  .setDescription("Ban a user from every server the bot is in")
+  .setDescription("Ban a user from every Naramo server in the config")
   .setDMPermission(false)
   .addUserOption((option) => option.setName("user").setDescription("User to ban, or paste their ID").setRequired(true))
   .addStringOption((option) => option.setName("reason").setDescription("Shown in each server's audit log and in the ban log").setRequired(true).setMinLength(3).setMaxLength(400));
@@ -48,21 +47,24 @@ const deny = (interaction: ChatInputCommandInteraction | ButtonInteraction) =>
   });
 
 const describe = (outcome: Outcome): string => {
-  if (outcome.status === "banned") return `${outcome.guild.name}: banned`;
-  if (outcome.status === "already") return `${outcome.guild.name}: already banned`;
-  return `${outcome.guild.name}: failed${outcome.detail ? ` (${outcome.detail})` : ""}`;
+  if (outcome.status === "banned") return `${outcome.server.name}: banned`;
+  if (outcome.status === "already") return `${outcome.server.name}: already banned`;
+  if (outcome.status === "missing") return `${outcome.server.name}: skipped, the bot isn't in this server yet`;
+  return `${outcome.server.name}: failed${outcome.detail ? ` (${outcome.detail})` : ""}`;
 };
 
-const banIn = async (guild: Guild, userId: string, reason: string): Promise<Outcome> => {
+const banIn = async (client: Client, server: ServerEntry, userId: string, reason: string): Promise<Outcome> => {
+  const guild = client.guilds.cache.get(server.id);
+  if (!guild) return { server, status: "missing" };
   const existing = await guild.bans.fetch({ user: userId, force: true }).catch(() => null);
-  if (existing) return { guild, status: "already" };
+  if (existing) return { server, status: "already" };
   try {
     await guild.bans.create(userId, { reason, deleteMessageSeconds: 0 });
-    return { guild, status: "banned" };
+    return { server, status: "banned" };
   } catch (error) {
     if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.MissingPermissions)
-      return { guild, status: "failed", detail: "missing permission or role too low" };
-    return { guild, status: "failed", detail: error instanceof DiscordAPIError ? error.message : "unknown error" };
+      return { server, status: "failed", detail: "missing permission or role too low" };
+    return { server, status: "failed", detail: error instanceof DiscordAPIError ? error.message : "unknown error" };
   }
 };
 
@@ -73,7 +75,8 @@ export const runGlobalban = async (interaction: ChatInputCommandInteraction): Pr
   }
   const target: User = interaction.options.getUser("user", true);
   const reason = interaction.options.getString("reason", true).trim();
-  const guilds = [...interaction.client.guilds.cache.values()];
+  const guilds = [MAIN_GUILD_ID, ...SERVERS.map((server) => server.id)].flatMap((id) => interaction.client.guilds.cache.get(id) ?? []);
+  const reachable = SERVERS.filter((server) => interaction.client.guilds.cache.has(server.id));
 
   const blocked =
     target.id === interaction.user.id
@@ -100,11 +103,13 @@ export const runGlobalban = async (interaction: ChatInputCommandInteraction): Pr
       panel({
         icon: "globe",
         title: "Confirm global ban",
-        body: `<@${target.id}> will be banned from **${guilds.length}** server${guilds.length === 1 ? "" : "s"}.`,
+        body: reachable.length
+          ? `<@${target.id}> will be banned from **${reachable.length}** of ${SERVERS.length} servers.`
+          : `The bot isn't in any of the ${SERVERS.length} servers yet, so nothing can be banned. The ban will still be logged.`,
         details: [
           line("user", "User", `${target.username} \`${target.id}\``),
           line("text-bubble", "Reason", reason),
-          line("home", "Servers", guilds.map((guild) => guild.name).join(", ")),
+          line("home", "Servers", SERVERS.map((server) => (interaction.client.guilds.cache.has(server.id) ? server.name : `${server.name} (bot not added yet)`)).join(", ")),
         ],
         buttons: [
           button(`globalban:confirm:${token}`, "Ban everywhere", ButtonStyle.Danger, "user-cross"),
@@ -145,13 +150,14 @@ export const handleGlobalbanButton = async (interaction: ButtonInteraction): Pro
   const target = await interaction.client.users.fetch(job.targetId).catch(() => null);
   const auditReason = `Global ban by ${interaction.user.username} (${interaction.user.id}): ${job.reason}`.slice(0, 512);
   const outcomes: Outcome[] = [];
-  for (const guild of interaction.client.guilds.cache.values()) outcomes.push(await banIn(guild, job.targetId, auditReason));
+  for (const server of SERVERS) outcomes.push(await banIn(interaction.client, server, job.targetId, auditReason));
 
   const banned = outcomes.filter((outcome) => outcome.status === "banned").length;
   const already = outcomes.filter((outcome) => outcome.status === "already").length;
   const failed = outcomes.filter((outcome) => outcome.status === "failed");
+  const missing = outcomes.filter((outcome) => outcome.status === "missing").length;
   const name = target ? `${target.username} \`${target.id}\`` : `\`${job.targetId}\``;
-  const servers = outcomes.map((outcome) => `${outcome.status === "failed" ? "-# " : ""}${describe(outcome)}`).join("\n");
+  const servers = outcomes.map((outcome) => `- ${describe(outcome)}`).join("\n");
 
   await interaction.editReply({
     components: [
@@ -179,7 +185,7 @@ export const handleGlobalbanButton = async (interaction: ButtonInteraction): Pro
               line("user", "User", name),
               line("crown", "Issued by", `<@${interaction.user.id}> \`${interaction.user.id}\``),
               line("text-bubble", "Reason", job.reason),
-              line("home", "Servers", `${banned} banned, ${already} already banned, ${failed.length} failed`),
+              line("home", "Servers", `${banned} banned, ${already} already banned, ${failed.length} failed${missing ? `, ${missing} skipped` : ""}`),
               "",
               servers,
             ],
