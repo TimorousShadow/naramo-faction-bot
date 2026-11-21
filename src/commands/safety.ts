@@ -27,7 +27,7 @@ import type { LogoName } from "../icon-set.js";
 
 const TTL_MS = 30 * 60 * 1000;
 const SERVERS_PER_PAGE = 2;
-const BLOCK_LIMIT = 1700;
+const PAGE_BUDGET = 3300;
 
 interface Subject {
   discord: { id: string; username: string; avatar: string; created: number } | null;
@@ -41,6 +41,7 @@ interface View extends Subject {
   globalBan: boolean;
   servers: { source: string; guild: WatcherGuild }[];
   details: { title: string; lines: string[] }[];
+  serverPages: { from: number; to: number; blocks: string[] }[];
 }
 
 const views = new Map<string, View>();
@@ -119,9 +120,9 @@ const serverBlock = (source: string, guild: WatcherGuild): string => {
   const latest = (values: string[]): number => Math.max(...values.map((value) => Date.parse(value)).filter((value) => !Number.isNaN(value)), 0);
   const left = leaves.length > 0 && latest(leaves) >= latest(joins);
   const inServer = left ? "No" : joins.length || guild.estimatedJoin ? "Yes" : "Unknown";
-  const joinDates = joins.slice(0, 3).map((value) => ts(value, "F")).filter(Boolean).join(", ");
+  const joinDates = joins.map((value) => ts(value, "F")).filter(Boolean).join(", ");
   const joined = joins.length
-    ? `Joined the server ${plural(joins.length, "time")}: ${joinDates}${joins.length > 3 ? ` and ${joins.length - 3} more` : ""}`
+    ? `Joined the server ${plural(joins.length, "time")}: ${joinDates}`
     : `Joined the server: ${ts(guild.estimatedJoin, "F") ? `estimate ${ts(guild.estimatedJoin, "F")}` : code("Unknown")}`;
   const seen = [
     ["First seen", ts(guild.firstSeen, "R")],
@@ -132,17 +133,17 @@ const serverBlock = (source: string, guild: WatcherGuild): string => {
     .map(([label, value]) => `${label}: ${value}`)
     .join(" · ");
   const membership = guild.membership ?? {};
-  const permissions = (membership.allTimePermissions ?? []).slice(0, 8).map((permission) => code(permission)).join(", ");
+  const permissions = (membership.allTimePermissions ?? []).map((permission) => code(permission)).join(", ");
   const extras = Object.entries(membership)
     .filter(([key, value]) => value === true && key !== "owner" && key !== "staff")
     .map(([key]) => titleCase(key));
-  const notableRoles = (guild.roles ?? []).filter((role) => role.type).slice(0, 4).map((role) => `${code(escapeMarkdown(role.name).slice(0, 40))} ${role.type}`);
+  const roleList = (guild.roles ?? []).map((role) => `${code(escapeMarkdown(role.name).slice(0, 40))}${role.type ? ` (${role.type})` : ""}`);
   const memberLines = [
     ...(membership.owner === true ? [`${icon("crown:amber")} Owner`] : []),
     ...(membership.staff === true ? [`${icon("gears:blurple")} Staff`] : []),
     ...(permissions ? [`└ Permissions: ${permissions}`] : []),
     ...(extras.length ? [`${icon("star")} ${extras.join(", ")}`] : []),
-    ...((guild.roles ?? []).length ? [`${icon("list")} ${plural(guild.roles!.length, "role")}${notableRoles.length ? `: ${notableRoles.join(", ")}` : ""}`] : []),
+    ...(roleList.length ? [`${icon("list")} ${plural(roleList.length, "role")}: ${roleList.join(", ")}`] : []),
   ];
   const activity = activityLines(guild.activity);
   const types = (guild.guildTypes ?? []).map((type) => type.name).filter(Boolean).map((name) => code(name!)).join(", ");
@@ -162,7 +163,7 @@ const serverBlock = (source: string, guild: WatcherGuild): string => {
     `Server type: ${types || code("Unknown")}`,
     ...(flags ? [`Server flags: ${flags}`] : []),
   ].join("\n");
-  return text.length > BLOCK_LIMIT ? `${text.slice(0, BLOCK_LIMIT - 2)}…` : text;
+  return text;
 };
 
 const DETAIL_BUDGET = 3200;
@@ -190,18 +191,46 @@ const detailPages = (checks: CheckResult[]): { title: string; lines: string[] }[
   return pages;
 };
 
-const serverPageCount = (view: View): number => Math.ceil(view.servers.length / SERVERS_PER_PAGE);
+const packServers = (servers: View["servers"]): View["serverPages"] => {
+  const pages: View["serverPages"] = [];
+  let current: View["serverPages"][number] | null = null;
+  let size = 0;
+  servers.forEach((entry, index) => {
+    const block = serverBlock(entry.source, entry.guild);
+    const parts: string[] = [];
+    let chunk = "";
+    for (const line of block.split("\n")) {
+      if (chunk && chunk.length + line.length + 1 > PAGE_BUDGET) {
+        parts.push(chunk);
+        chunk = "";
+      }
+      chunk = chunk ? `${chunk}\n${line}` : line;
+    }
+    parts.push(chunk);
+    for (const part of parts) {
+      if (!current || current.blocks.length >= SERVERS_PER_PAGE || size + part.length > PAGE_BUDGET) {
+        current = { from: index + 1, to: index + 1, blocks: [] };
+        pages.push(current);
+        size = 0;
+      }
+      current.blocks.push(part);
+      current.to = index + 1;
+      size += part.length;
+    }
+  });
+  return pages;
+};
+
+const serverPageCount = (view: View): number => view.serverPages.length;
 
 const pageCount = (view: View): number => 1 + view.details.length + serverPageCount(view);
 
 const sections = (view: View): { label: string; page: number }[] => {
   const list = [{ label: "Overview", page: 0 }, ...view.details.map((detail, index) => ({ label: `Details: ${detail.title}`, page: 1 + index }))];
   const first = 1 + view.details.length;
-  for (let index = 0; index < serverPageCount(view); index += 1) {
-    const from = index * SERVERS_PER_PAGE + 1;
-    const to = Math.min((index + 1) * SERVERS_PER_PAGE, view.servers.length);
-    list.push({ label: `Servers ${from}${to > from ? `-${to}` : ""}: ${view.servers[from - 1]!.source}`, page: first + index });
-  }
+  view.serverPages.forEach((page, index) => {
+    list.push({ label: `Servers ${page.from}${page.to > page.from ? `-${page.to}` : ""}: ${view.servers[page.from - 1]!.source}`, page: first + index });
+  });
   return list.slice(0, 25);
 };
 
@@ -272,11 +301,10 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
   else if (current <= view.details.length) {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(view.details[current - 1]!.lines.join("\n")));
   } else {
-    const serverPage = current - 1 - view.details.length;
-    const slice = view.servers.slice(serverPage * SERVERS_PER_PAGE, (serverPage + 1) * SERVERS_PER_PAGE);
-    slice.forEach((entry, index) => {
+    const serverPage = view.serverPages[current - 1 - view.details.length]!;
+    serverPage.blocks.forEach((block, index) => {
       if (index > 0) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(serverBlock(entry.source, entry.guild)));
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(block));
     });
   }
 
@@ -359,11 +387,13 @@ const report = async (interaction: ChatInputCommandInteraction | ButtonInteracti
     report: result,
     globalBan: subject.discord ? Boolean(activeGlobalBan(subject.discord.id)) : false,
     details: detailPages(result.checks),
+    serverPages: [],
     servers: [
       ...(result.robloxWatcher?.guilds ?? []).sort(byScore).map((guild) => ({ source: "Roblox Watcher", guild })),
       ...(result.exploitWatcher?.guilds ?? []).sort(byScore).map((guild) => ({ source: "Exploit Watcher", guild })),
     ],
   };
+  view.serverPages = packServers(view.servers);
   const token = randomUUID().slice(0, 12);
   views.set(token, view);
   setTimeout(() => views.delete(token), TTL_MS).unref();

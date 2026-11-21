@@ -83,7 +83,7 @@ const clean = (text: string, max = 80): string => {
   return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 };
 
-const MAX_EVIDENCE = 25;
+const MAX_EVIDENCE = 500;
 
 interface Evidence {
   kind?: string;
@@ -220,13 +220,13 @@ const watcherGuildLine = (guild: WatcherGuild): string => {
   const facts = [
     `score ${code(Math.round((guild.score ?? 0) * 100) / 100)}`,
     guild.detectionVersion ? `detection v${guild.detectionVersion}` : "",
-    joins.length ? `joined ${joins.map((value) => when(value, "D")).filter(Boolean).slice(0, 3).join(", ")}` : when(guild.estimatedJoin, "D") ? `joined around ${when(guild.estimatedJoin, "D")}` : "join date unknown",
+    joins.length ? `joined ${joins.map((value) => when(value, "D")).filter(Boolean).join(", ")}` : when(guild.estimatedJoin, "D") ? `joined around ${when(guild.estimatedJoin, "D")}` : "join date unknown",
     leaves.length ? `left ${when(leaves.at(-1), "D")}` : "",
     when(guild.lastActivity) ? `last active ${when(guild.lastActivity)}` : "",
     ...activity.map(([key, value]) => `${code(value)} ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`),
     ...membership,
-    (guild.membership?.allTimePermissions ?? []).length ? `permissions ${(guild.membership?.allTimePermissions ?? []).slice(0, 5).map((permission) => code(permission)).join(" ")}` : "",
-    (guild.roles ?? []).length ? `roles ${(guild.roles ?? []).slice(0, 5).map((role) => code(clean(role.name, 30))).join(" ")}${guild.roles!.length > 5 ? ` +${guild.roles!.length - 5}` : ""}` : "",
+    (guild.membership?.allTimePermissions ?? []).length ? `permissions ${(guild.membership?.allTimePermissions ?? []).map((permission) => code(permission)).join(" ")}` : "",
+    (guild.roles ?? []).length ? `roles ${(guild.roles ?? []).map((role) => `${code(clean(role.name, 40))}${role.type ? ` (${role.type})` : ""}`).join(" ")}` : "",
   ].filter(Boolean);
   return `- ${head}\n  -# ${facts.join(" · ")}`;
 };
@@ -312,8 +312,8 @@ const xTracker = (robloxId: string) =>
       ...(entries.length
         ? ["**Registry evidence**", ...entries.slice(0, MAX_EVIDENCE).map((entry) => `- ${clean(entry.reason ?? "No reason given", 160)}${entry.date ? ` · ${clean(entry.date, 40)}` : ""}${safeUrl(entry.url) ? ` · [evidence](${safeUrl(entry.url)})` : ""}`)]
         : []),
-      ...(altIds.length ? ["", "**Known alts**", ...altIds.slice(0, 15).map((alt) => `- [${alt}](https://www.roblox.com/users/${alt}/profile)`)] : []),
-      ...(owned.length ? ["", "**Owned cheats**", ...owned.slice(0, 15).map((item) => `- ${code(clean(String(item), 40))}`)] : []),
+      ...(altIds.length ? ["", "**Known alts**", ...altIds.map((alt) => `- [${alt}](https://www.roblox.com/users/${alt}/profile)`)] : []),
+      ...(owned.length ? ["", "**Owned cheats**", ...owned.map((item) => `- ${code(clean(String(item), 40))}`)] : []),
     ];
     return hits.length ? { state: "flagged", text: hits.join("; "), details } : { state: "clear", text: "no records" };
   });
@@ -332,17 +332,17 @@ const catWatcher = (robloxId: string) =>
     const records = Math.max(data.recordCount ?? 0, data.records?.length ?? 0);
     if (!records) return { state: "clear", text: "no cheater records" };
     const active = data.summary?.currentlyActive ?? 0;
-    const list = (values?: string[]): string => (values ?? []).slice(0, 6).map((value) => code(clean(value, 40))).join(" ");
+    const list = (values?: string[]): string => (values ?? []).map((value) => code(clean(value, 40))).join(" ");
     const details = [
       `${code(records)} record${records === 1 ? "" : "s"}${active ? ` · ${code(active)} still in servers` : ""}${when(data.summary?.lastActivity) ? ` · last activity ${when(data.summary?.lastActivity)}` : ""}`,
-      ...(data.records ?? []).slice(0, 10).flatMap((record, index) => [
+      ...(data.records ?? []).flatMap((record, index) => [
         "",
         `**Record ${index + 1}**${record.discordId ? ` · Discord ${code(record.discordId)}` : ""}${record.stillInServers ? " · still in servers" : ""}`,
         [when(record.firstCaught, "D") ? `First caught ${when(record.firstCaught, "D")}` : "", when(record.lastChecked) ? `last checked ${when(record.lastChecked)}` : "", record.caughtByAdmin ? `caught by admin ${code(record.caughtByAdmin)}` : ""].filter(Boolean).join(" · "),
         ...((record.currentServers ?? []).length ? [`Now in: ${list(record.currentServers)}`] : []),
         ...((record.previousServers ?? []).length ? [`Previously in: ${list(record.previousServers)}`] : []),
       ]),
-      ...((data.linkedDiscordIds ?? []).length ? ["", `Linked Discord accounts: ${(data.linkedDiscordIds ?? []).slice(0, 10).map((value) => code(value)).join(" ")}`] : []),
+      ...((data.linkedDiscordIds ?? []).length ? ["", `Linked Discord accounts: ${(data.linkedDiscordIds ?? []).map((value) => code(value)).join(" ")}`] : []),
     ];
     return { state: "flagged", text: `${code(records)} cheater record${records === 1 ? "" : "s"}${active ? `, ${code(active)} still active` : ""}`, details };
   });
