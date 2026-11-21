@@ -10,11 +10,37 @@ export interface CheckResult {
 export interface LinkedAccount {
   id: string;
   flagged: boolean;
+  sources: string[];
+}
+
+export interface WatcherGuild {
+  id: string;
+  name: string;
+  guildTypes?: { name?: string }[];
+  guildFlags?: string[];
+  score?: number | null;
+  guildJoins?: string[];
+  guildLeaves?: string[];
+  estimatedJoin?: string | null;
+  firstSeen?: string | null;
+  lastSeen?: string | null;
+  lastActivity?: string | null;
+  activity?: Record<string, number> | null;
+  roles?: { id: string; name: string; permissions?: string[]; type?: string | null }[];
+  membership?: (Record<string, unknown> & { allTimePermissions?: string[] }) | null;
+}
+
+export interface WatcherData {
+  flagged: boolean;
+  totalScore: number;
+  guilds: WatcherGuild[];
 }
 
 export interface SafetyReport {
   checks: CheckResult[];
   linkedDiscord: LinkedAccount[];
+  robloxWatcher: WatcherData | null;
+  exploitWatcher: WatcherData | null;
 }
 
 const TIMEOUT = 10_000;
@@ -38,9 +64,9 @@ const settle = async (name: string, run: () => Promise<Omit<CheckResult, "name">
   }
 };
 
-const skipped = (name: string, text: string): CheckResult => ({ name, state: "skipped", text });
+const skipped = (name: string, text: string): Promise<CheckResult> => Promise.resolve({ name, state: "skipped", text });
 
-const count = (value: number, word: string): string => `${value.toLocaleString("en-US")} ${word}${value === 1 ? "" : "s"}`;
+const code = (value: number | string): string => `\`${typeof value === "number" ? value.toLocaleString("en-US") : value}\``;
 
 const RAYWARD_PROVIDERS = [
   ["rotector", "Rotector"],
@@ -53,7 +79,6 @@ const RAYWARD_PROVIDERS = [
 const RAYWARD_LABELS: Record<number, string> = { 1: "Flagged", 2: "Confirmed", 3: "Queued", 4: "Provisional flag", 5: "Mixed", 6: "Past offender", 8: "Redacted", 10: "Awaiting human review" };
 
 interface RaywardBody {
-  success?: boolean;
   data?: { flagType?: number | string; statusLabel?: string; reasons?: { title?: string }[] };
 }
 
@@ -64,52 +89,37 @@ const rayward = (robloxId: string, provider: string, label: string) =>
     const data = (body as RaywardBody).data;
     const flagType = Number(data?.flagType ?? 0);
     if (flagType === 0) return { state: "clear", text: "not flagged" };
-    const label = data?.statusLabel?.trim() || RAYWARD_LABELS[flagType] || `classification ${flagType}`;
+    const classification = data?.statusLabel?.trim() || RAYWARD_LABELS[flagType] || `classification ${flagType}`;
     const reasons = (data?.reasons ?? []).map((reason) => reason.title).filter(Boolean).slice(0, 3).join(", ");
-    return { state: flagType === 3 || flagType === 10 ? "pending" : "flagged", text: reasons ? `${label} (${reasons})` : label };
+    return { state: flagType === 3 || flagType === 10 ? "pending" : "flagged", text: `${code(classification)}${reasons ? ` ${reasons}` : ""}` };
   });
 
-interface WatcherGuild {
-  guildTypes?: { name?: string }[];
-  score?: number | null;
-}
-
-interface WatcherBody {
-  flagged?: boolean;
-  totalScore?: number;
-  guilds?: WatcherGuild[];
-}
-
-const watcherSummary = (body: WatcherBody, kind: string): Omit<CheckResult, "name"> => {
-  const guilds = body.guilds ?? [];
-  if (!body.flagged && guilds.length === 0) return { state: "clear", text: `no ${kind} servers found` };
-  const types = new Map<string, number>();
-  for (const guild of guilds) for (const type of guild.guildTypes ?? []) if (type.name) types.set(type.name, (types.get(type.name) ?? 0) + 1);
-  const breakdown = [...types.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, total]) => `${name} ${total}`).join(", ");
-  const score = Math.round(body.totalScore ?? 0).toLocaleString("en-US");
-  return { state: body.flagged ? "flagged" : "clear", text: `score ${score} across ${count(guilds.length, "server")}${breakdown ? ` (${breakdown})` : ""}` };
+const fetchWatcher = async (product: "robloxwatcher" | "exploitwatcher", discordId: string): Promise<WatcherData> => {
+  const service = product === "robloxwatcher" ? "Roblox Watcher" : "Exploit Watcher";
+  const key = product === "robloxwatcher" ? process.env.ROBLOX_WATCHER_API_KEY : process.env.EXPLOIT_WATCHER_API_KEY;
+  const { status, body } = await request(`https://api.robloxwatcher.com/api/v1/${product}/search/${discordId}`, { Authorization: `Bearer ${key}` });
+  if (status !== 200) throw httpError(service, status);
+  const data = body as Partial<WatcherData>;
+  return { flagged: Boolean(data.flagged), totalScore: data.totalScore ?? 0, guilds: data.guilds ?? [] };
 };
 
-const robloxWatcher = (discordId: string) =>
-  settle("Roblox Watcher", async () => {
-    const { status, body } = await request(`https://api.robloxwatcher.com/api/v1/robloxwatcher/search/${discordId}`, { Authorization: `Bearer ${process.env.ROBLOX_WATCHER_API_KEY}` });
-    if (status !== 200) throw httpError("Roblox Watcher", status);
-    return watcherSummary(body as WatcherBody, "condo or NSFW");
-  });
-
-const exploitWatcher = (discordId: string) =>
-  settle("Exploit Watcher", async () => {
-    const { status, body } = await request(`https://api.robloxwatcher.com/api/v1/exploitwatcher/search/${discordId}`, { Authorization: `Bearer ${process.env.EXPLOIT_WATCHER_API_KEY}` });
-    if (status !== 200) throw httpError("Exploit Watcher", status);
-    return watcherSummary(body as WatcherBody, "exploit");
-  });
+const watcherSummary = (data: WatcherData, kind: string): Omit<CheckResult, "name"> => {
+  if (!data.flagged && data.guilds.length === 0) return { state: "clear", text: `no ${kind} servers` };
+  const types = new Map<string, number>();
+  for (const guild of data.guilds) for (const type of guild.guildTypes ?? []) if (type.name) types.set(type.name, (types.get(type.name) ?? 0) + 1);
+  const breakdown = [...types.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, total]) => `${name} ${total}`).join(", ");
+  return {
+    state: data.flagged ? "flagged" : "clear",
+    text: `score ${code(Math.round(data.totalScore))} in ${code(data.guilds.length)} server${data.guilds.length === 1 ? "" : "s"}${breakdown ? `, ${breakdown}` : ""}`,
+  };
+};
 
 const linkedDiscordAccounts = async (robloxId: string): Promise<LinkedAccount[]> => {
   if (!process.env.ROBLOX_WATCHER_API_KEY) return [];
   try {
     const { status, body } = await request(`https://api.robloxwatcher.com/api/v1/robloxwatcher/roblox/search/${robloxId}`, { Authorization: `Bearer ${process.env.ROBLOX_WATCHER_API_KEY}` });
     if (status !== 200) return [];
-    return ((body as { discordAccounts?: LinkedAccount[] }).discordAccounts ?? []).map((account) => ({ id: String(account.id), flagged: Boolean(account.flagged) }));
+    return ((body as { discordAccounts?: LinkedAccount[] }).discordAccounts ?? []).map((account) => ({ id: String(account.id), flagged: Boolean(account.flagged), sources: account.sources ?? [] }));
   } catch {
     return [];
   }
@@ -123,15 +133,13 @@ const simmer = (robloxId: string) =>
     const data = body as { success?: boolean; groupCount?: number; groupTypes?: Record<string, { count?: number }> };
     if (!data.success || !data.groupCount) return { state: "clear", text: "not in any flagged group" };
     const types = Object.entries(data.groupTypes ?? {}).map(([name, value]) => `${name} ${value.count ?? 0}`).join(", ");
-    return { state: "flagged", text: `in ${count(data.groupCount, "flagged group")}${types ? ` (${types})` : ""}` };
+    return { state: "flagged", text: `in ${code(data.groupCount)} flagged group${data.groupCount === 1 ? "" : "s"}${types ? `, ${types}` : ""}` };
   });
 
 const xTracker = (robloxId: string) =>
   settle("X Tracker", async () => {
     const headers = { Authorization: process.env.XTRACKER_API_KEY ?? "" };
-    const [registry, ownership] = await Promise.all(
-      ["registry", "ownership"].map((path) => request(`https://api.xtracker.xyz/api/${path}/user?id=${robloxId}`, headers)),
-    );
+    const [registry, ownership] = await Promise.all(["registry", "ownership"].map((path) => request(`https://api.xtracker.xyz/api/${path}/user?id=${robloxId}`, headers)));
     for (const [response, label] of [[registry!, "registry"], [ownership!, "ownership"]] as const)
       if (response.status !== 200 && response.status !== 404) throw httpError(`X Tracker ${label}`, response.status);
     const record = (registry!.status === 200 ? registry!.body : null) as { evidence?: { reason?: string }[]; alts?: unknown } | null;
@@ -140,9 +148,9 @@ const xTracker = (robloxId: string) =>
     const alts = Array.isArray(altsRaw) ? altsRaw.length : 0;
     const owned = ((ownership!.status === 200 ? (ownership!.body as { owned_cheat?: unknown }).owned_cheat : null) ?? []) as unknown[];
     const hits = [
-      ...(evidence.length ? [`${evidence.length} registry ${evidence.length === 1 ? "entry" : "entries"} (${evidence.slice(0, 2).join(", ")})`] : []),
-      ...(alts ? [count(alts, "known alt")] : []),
-      ...(owned.length ? [`owns ${owned.map(String).slice(0, 3).join(", ")}`] : []),
+      ...(evidence.length ? [`${code(evidence.length)} registry ${evidence.length === 1 ? "entry" : "entries"}, ${evidence.slice(0, 2).join(", ")}`] : []),
+      ...(alts ? [`${code(alts)} known alt${alts === 1 ? "" : "s"}`] : []),
+      ...(owned.length ? [`owns ${owned.map((item) => code(String(item))).slice(0, 3).join(", ")}`] : []),
     ];
     return hits.length ? { state: "flagged", text: hits.join("; ") } : { state: "clear", text: "no records" };
   });
@@ -156,25 +164,37 @@ const catWatcher = (robloxId: string) =>
     const records = data.recordCount ?? 0;
     if (!records) return { state: "clear", text: "no cheater records" };
     const active = data.summary?.currentlyActive ?? 0;
-    return { state: "flagged", text: `${count(records, "cheater record")}${active ? `, ${active} still active` : ""}` };
+    return { state: "flagged", text: `${code(records)} cheater record${records === 1 ? "" : "s"}${active ? `, ${code(active)} still active` : ""}` };
   });
 
 export const runSafetyChecks = async (discordId: string | null, robloxId: string | null): Promise<SafetyReport> => {
   const env = process.env;
   const needDiscord = "needs a Discord account";
   const needRoblox = "needs a Roblox account";
-  const jobs: Promise<CheckResult>[] = [
-    ...RAYWARD_PROVIDERS.map(([provider, label]) =>
-      !env.RAYWARD_API_KEY ? Promise.resolve(skipped(`${label} via Rayward`, "not configured")) : robloxId ? rayward(robloxId, provider, label) : Promise.resolve(skipped(`${label} via Rayward`, needRoblox)),
-    ),
-    !env.ROBLOX_WATCHER_API_KEY ? Promise.resolve(skipped("Roblox Watcher", "not configured")) : discordId ? robloxWatcher(discordId) : Promise.resolve(skipped("Roblox Watcher", needDiscord)),
-    !env.EXPLOIT_WATCHER_API_KEY ? Promise.resolve(skipped("Exploit Watcher", "not configured")) : discordId ? exploitWatcher(discordId) : Promise.resolve(skipped("Exploit Watcher", needDiscord)),
-    !env.SIMMER_API_KEY ? Promise.resolve(skipped("Simmer", "not configured")) : robloxId ? simmer(robloxId) : Promise.resolve(skipped("Simmer", needRoblox)),
-    !env.XTRACKER_API_KEY ? Promise.resolve(skipped("X Tracker", "not configured")) : robloxId ? xTracker(robloxId) : Promise.resolve(skipped("X Tracker", needRoblox)),
-    !env.CATWATCHER_API_KEY ? Promise.resolve(skipped("Cat Watcher", "not configured")) : robloxId ? catWatcher(robloxId) : Promise.resolve(skipped("Cat Watcher", needRoblox)),
+  const rw = discordId && env.ROBLOX_WATCHER_API_KEY ? fetchWatcher("robloxwatcher", discordId) : null;
+  const ew = discordId && env.EXPLOIT_WATCHER_API_KEY ? fetchWatcher("exploitwatcher", discordId) : null;
+  rw?.catch(() => undefined);
+  ew?.catch(() => undefined);
+  const watcherCheck = (name: string, kind: string, key: string | undefined, data: Promise<WatcherData> | null): Promise<CheckResult> =>
+    !key ? skipped(name, "not configured") : !data ? skipped(name, needDiscord) : settle(name, async () => watcherSummary(await data, kind));
+  const robloxCheck = (name: string, key: string | undefined, run: (id: string) => Promise<CheckResult>): Promise<CheckResult> =>
+    !key ? skipped(name, "not configured") : robloxId ? run(robloxId) : skipped(name, needRoblox);
+
+  const jobs = [
+    ...RAYWARD_PROVIDERS.map(([provider, label]) => robloxCheck(`${label} via Rayward`, env.RAYWARD_API_KEY, (id) => rayward(id, provider, label))),
+    watcherCheck("Roblox Watcher", "condo or NSFW", env.ROBLOX_WATCHER_API_KEY, rw),
+    watcherCheck("Exploit Watcher", "exploit", env.EXPLOIT_WATCHER_API_KEY, ew),
+    robloxCheck("Simmer", env.SIMMER_API_KEY, simmer),
+    robloxCheck("X Tracker", env.XTRACKER_API_KEY, xTracker),
+    robloxCheck("Cat Watcher", env.CATWATCHER_API_KEY, catWatcher),
   ];
-  const [checks, linkedDiscord] = await Promise.all([Promise.all(jobs), robloxId ? linkedDiscordAccounts(robloxId) : Promise.resolve([])]);
-  return { checks, linkedDiscord };
+  const [checks, linkedDiscord, robloxWatcher, exploitWatcher] = await Promise.all([
+    Promise.all(jobs),
+    robloxId ? linkedDiscordAccounts(robloxId) : Promise.resolve([]),
+    rw?.catch(() => null) ?? Promise.resolve(null),
+    ew?.catch(() => null) ?? Promise.resolve(null),
+  ]);
+  return { checks, linkedDiscord, robloxWatcher, exploitWatcher };
 };
 
 export const resolveRobloxUsername = async (input: string): Promise<{ id: string; name: string } | null> => {
