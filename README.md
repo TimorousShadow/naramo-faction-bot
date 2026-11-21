@@ -20,7 +20,7 @@ The commands below only exist in Naramo Faction Management and need the Access r
 
 `/status` checks each server: whether the bot is there, whether it has Ban Members, Manage Server and View Audit Log, and how many roles sit above it. It also shows the global ban count, the log channel, Bloxlink and the running version.
 
-Global bans and unbans are posted to the global ban log channel. Command replies are visible in the channel.
+Global bans and unbans are posted to the global ban log channel. Every interaction with the bot in any server (commands with their options, buttons, forms, the result and how long it took) and every server the bot joins or leaves is logged to the watcher channel in Naramo Faction Management, which only the NOSHA role can see. Command replies are visible in the channel.
 
 ## Running it
 
@@ -37,7 +37,7 @@ npm start
 
 ## Configuration
 
-`config.json` holds the main server, the role and log channel for global bans, and the list of servers a global ban applies to.
+`config.json` holds the main server, the watcher channel, the role and log channel for global bans, and the list of servers a global ban applies to.
 
 ## Deployment
 
