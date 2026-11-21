@@ -10,7 +10,7 @@ import { handleSafetyButton, handleSafetySelect, runSafety } from "./commands/sa
 import { runStatus } from "./commands/status.js";
 import { errorPanel, v2 } from "./ui.js";
 import { watchGuild, watchInteraction } from "./watcher.js";
-import { PROTECTED_GUILD_IDS } from "./config.js";
+import { PROTECTED_GUILD_IDS, extraCommandsFor } from "./config.js";
 import { registerGuild } from "./registry.js";
 
 const token = process.env.DISCORD_TOKEN;
@@ -54,7 +54,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const started = Date.now();
   let failure: unknown;
   try {
-    if (interaction.guildId && PROTECTED_GUILD_IDS.has(interaction.guildId)) {
+    const allowedHere = (scope: string) => scope === "safety" && extraCommandsFor(interaction.guildId ?? "").includes("safety");
+    const scope = interaction.isChatInputCommand() ? interaction.commandName : "customId" in interaction ? interaction.customId.split(":")[0] ?? "" : "";
+    const action = "customId" in interaction ? interaction.customId.split(":")[1] ?? "" : "";
+    if (interaction.guildId && PROTECTED_GUILD_IDS.has(interaction.guildId) && !(allowedHere(scope) && action !== "gban")) {
       if (interaction.isRepliable()) await interaction.reply({ components: [errorPanel("Not available here", "This bot doesn't run commands in this server.")], flags: v2 | MessageFlags.Ephemeral });
       return;
     }

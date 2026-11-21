@@ -15,7 +15,14 @@
       "command": "safety",
       "roles": [
         "1504873010463637504"
-      ]
+      ],
+      "minRoleId": null
+    },
+    {
+      "guildId": "1367336998586679296",
+      "command": "safety",
+      "roles": [],
+      "minRoleId": "1367336998586679300"
     }
   ],
   "globalBan": {

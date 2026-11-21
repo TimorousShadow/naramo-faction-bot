@@ -13,10 +13,10 @@ const mainCommands = [banlistCommand, globalbanCommand, globalunbanCommand, gban
 const serverCommands = [banlistCommand];
 
 export const commandsFor = (guildId: string) => {
-  if (PROTECTED_GUILD_IDS.has(guildId)) return [];
+  const extra = extraCommandsFor(guildId);
+  if (PROTECTED_GUILD_IDS.has(guildId)) return mainCommands.filter((command) => extra.includes(command.name) && command.name !== "banlist" && !command.name.startsWith("global"));
   if (guildId === MAIN_GUILD_ID) return mainCommands;
   if (!SERVERS.some((server) => server.id === guildId)) return [];
-  const extra = extraCommandsFor(guildId);
   return [...serverCommands, ...mainCommands.filter((command) => extra.includes(command.name) && !serverCommands.includes(command))];
 };
 

@@ -1,6 +1,6 @@
 // TimorousShadow
 import type { ButtonInteraction, ChatInputCommandInteraction, Client, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
-import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS, commandAccessRoles } from "./config.js";
+import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS, commandAccessMinRoles, commandAccessRoles } from "./config.js";
 import { errorPanel, privateV2, v2 } from "./ui.js";
 
 type Gated = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction | StringSelectMenuInteraction;
@@ -19,9 +19,17 @@ const memberRoleIds = (interaction: Gated): string[] => {
 export const ensureAccess = async (interaction: Gated, command: string): Promise<boolean> => {
   if (interaction.guildId === MAIN_GUILD_ID && (await hasAccess(interaction.client, interaction.user.id))) return true;
   const localRoles = commandAccessRoles(interaction.guildId, command);
-  if (localRoles.length && memberRoleIds(interaction).some((role) => localRoles.includes(role))) return true;
-  const message = localRoles.length
-    ? `Only ${localRoles.map((role) => `<@&${role}>`).join(", ")} can use /${command} in this server.`
+  const minRoles = commandAccessMinRoles(interaction.guildId, command);
+  const held = memberRoleIds(interaction);
+  if (localRoles.length && held.some((role) => localRoles.includes(role))) return true;
+  if (minRoles.length && interaction.guild) {
+    const roles = interaction.guild.roles.cache;
+    const highest = Math.max(0, ...held.map((role) => roles.get(role)?.position ?? 0));
+    if (minRoles.some((role) => roles.has(role) && highest >= roles.get(role)!.position)) return true;
+  }
+  const allowed = [...localRoles.map((role) => `<@&${role}>`), ...minRoles.map((role) => `<@&${role}> or higher`)];
+  const message = allowed.length
+    ? `Only ${allowed.join(", ")} can use /${command} in this server.`
     : `Only members of Naramo Faction Management with the <@&${GLOBAL_BAN_ROLE_ID}> role can use /${command}.`;
   const components = [errorPanel("No access", message)];
   if (interaction.isButton() || interaction.isStringSelectMenu()) await interaction.reply({ components, flags: privateV2, allowedMentions: { parse: [] } });
