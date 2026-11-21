@@ -3,6 +3,7 @@ import "dotenv/config";
 import { Client, Events, GatewayIntentBits, MessageFlags, REST, type ButtonInteraction, type ChatInputCommandInteraction, type ModalSubmitInteraction } from "discord.js";
 import { handleBanlistButton, runBanlist } from "./commands/banlist.js";
 import { runGbaninfo } from "./commands/gbaninfo.js";
+import { runHelp } from "./commands/help.js";
 import { handleGlobalbanButton, handleGlobalbanModal, runGlobalban } from "./commands/globalban.js";
 import { handleGlobalunbanButton, handleGlobalunbanModal, runGlobalunban } from "./commands/globalunban.js";
 import { runLookup } from "./commands/lookup.js";
@@ -24,6 +25,7 @@ const commands: Record<string, (interaction: ChatInputCommandInteraction) => Pro
   lookup: runLookup,
   status: runStatus,
   safety: runSafety,
+  help: runHelp,
 };
 
 const buttons: Record<string, (interaction: ButtonInteraction) => Promise<void>> = {
@@ -54,7 +56,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const started = Date.now();
   let failure: unknown;
   try {
-    const allowedHere = (scope: string) => scope === "safety" && extraCommandsFor(interaction.guildId ?? "").includes("safety");
+    const allowedHere = (scope: string) => (scope === "safety" || scope === "help") && extraCommandsFor(interaction.guildId ?? "").includes("safety");
     const scope = interaction.isChatInputCommand() ? interaction.commandName : "customId" in interaction ? interaction.customId.split(":")[0] ?? "" : "";
     const action = "customId" in interaction ? interaction.customId.split(":")[1] ?? "" : "";
     if (interaction.guildId && PROTECTED_GUILD_IDS.has(interaction.guildId) && !(allowedHere(scope) && action !== "gban")) {

@@ -16,24 +16,27 @@ export const COLORS = { green: "#23A55A", red: "#F23F43", amber: "#F0B232", blur
 export type ColorName = keyof typeof COLORS;
 
 export const COLORED = [
-  ["check", "green"],
-  ["unlock", "green"],
-  ["login", "green"],
-  ["alert-triangle", "red"],
-  ["alert-circle", "red"],
-  ["user-cross", "red"],
-  ["logout", "red"],
-  ["globe", "red"],
-  ["clock", "amber"],
-  ["alert-circle", "amber"],
-  ["crown", "amber"],
-  ["gears", "blurple"],
-  ["minus", "grey"],
-] as const satisfies readonly (readonly [IconName, ColorName])[];
+  ["check", "green", "clear", "Clean, nothing found"],
+  ["alert-triangle", "red", "flagged", "Flagged by this check"],
+  ["clock", "amber", "pending", "Queued or waiting for review"],
+  ["alert-circle", "amber", "lookup_error", "The check failed or the service didn't answer"],
+  ["minus", "grey", "unknown", "Skipped, not available or unknown"],
+  ["alert-circle", "red", "flagged_account", "A linked account that is flagged"],
+  ["user-cross", "red", "ban", "Ban"],
+  ["unlock", "green", "unban", "Unban or ban lifted"],
+  ["globe", "red", "global_ban", "Globally banned"],
+  ["login", "green", "in_server", "Still in that server"],
+  ["logout", "red", "left_server", "Left that server"],
+  ["crown", "amber", "owner", "Owner of that server"],
+  ["gears", "blurple", "staff", "Staff in that server"],
+] as const satisfies readonly (readonly [IconName, ColorName, string, string])[];
 
 export type ColoredIcon = `${(typeof COLORED)[number][0]}:${(typeof COLORED)[number][1]}`;
 
-export const coloredEmojiName = (icon: IconName, color: ColorName): string => `${emojiName(icon)}_${color}`;
+export const coloredEmojiName = (icon: IconName, color: ColorName): string => {
+  const entry = COLORED.find(([base, tint]) => base === icon && tint === color);
+  return entry ? `nf_${entry[2]}` : `${emojiName(icon)}_${color}`;
+};
 
 export const LOGOS = ["rayward", "rotector", "serversweep", "okappiki", "rab", "tase", "robloxwatcher", "simmer", "xtracker", "catwatcher"] as const;
 

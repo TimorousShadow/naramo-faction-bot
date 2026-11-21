@@ -1,5 +1,5 @@
 // TimorousShadow
-import type { ButtonInteraction, ChatInputCommandInteraction, Client, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
+import { PermissionFlagsBits, type ButtonInteraction, type ChatInputCommandInteraction, type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS, commandAccessMinRoles, commandAccessRoles } from "./config.js";
 import { errorPanel, privateV2, v2 } from "./ui.js";
 
@@ -16,7 +16,8 @@ const memberRoleIds = (interaction: Gated): string[] => {
   return Array.isArray(roles) ? roles : [...roles.cache.keys()];
 };
 
-export const ensureAccess = async (interaction: Gated, command: string): Promise<boolean> => {
+export const canUse = async (interaction: Gated, command: string): Promise<boolean> => {
+  if (command === "banlist") return Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
   if (interaction.guildId === MAIN_GUILD_ID && (await hasAccess(interaction.client, interaction.user.id))) return true;
   const localRoles = commandAccessRoles(interaction.guildId, command);
   const minRoles = commandAccessMinRoles(interaction.guildId, command);
@@ -27,6 +28,13 @@ export const ensureAccess = async (interaction: Gated, command: string): Promise
     const highest = Math.max(0, ...held.map((role) => roles.get(role)?.position ?? 0));
     if (minRoles.some((role) => roles.has(role) && highest >= roles.get(role)!.position)) return true;
   }
+  return false;
+};
+
+export const ensureAccess = async (interaction: Gated, command: string): Promise<boolean> => {
+  if (await canUse(interaction, command)) return true;
+  const localRoles = commandAccessRoles(interaction.guildId, command);
+  const minRoles = commandAccessMinRoles(interaction.guildId, command);
   const allowed = [...localRoles.map((role) => `<@&${role}>`), ...minRoles.map((role) => `<@&${role}> or higher`)];
   const message = allowed.length
     ? `Only ${allowed.join(", ")} can use /${command} in this server.`

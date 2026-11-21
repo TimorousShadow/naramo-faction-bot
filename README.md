@@ -18,6 +18,8 @@ The commands below only exist in Naramo Faction Management and need the Access r
 
 `/safety user: roblox:` runs every safety checker on a Discord user, a Roblox username or ID, or both: Rotector, ServerSweep, Okappiki, RAB and TASE via Rayward, Roblox Watcher, Exploit Watcher, Simmer, X Tracker and Cat Watcher. It also lists other Discord accounts linked to the same Roblox account. `/lookup` has a button that runs it for the person shown.
 
+`/help` lists the commands the person running it can use in that server and explains every status icon and provider logo. It's available wherever the bot has commands, to the same people who can use them.
+
 `/status` checks each server: whether the bot is there, whether it has Ban Members, Manage Server and View Audit Log, and how many roles sit above it. It also shows the global ban count, the log channel, Bloxlink and the running version.
 
 Global bans and unbans are posted to the global ban log channel. Every interaction with the bot in any server (commands with their options, buttons, forms, the result and how long it took) and every server the bot joins or leaves is logged to the watcher channel in Naramo Faction Management, which only the NOSHA role can see. Command replies are visible in the channel.
@@ -33,7 +35,7 @@ npm run register
 npm start
 ```
 
-`npm run icons:upload` uploads the icons in `assets/icons` as server emojis named `nf_<icon>` and writes their IDs to `src/emojis.json`. `npx tsx scripts/upload-storage.ts` uploads the coloured icons in `assets/icons/colored` (named `nf_<icon>_<colour>`) and the provider logos to the emoji storage server set in `STORAGE_GUILD_ID`. Provider logos belong to their owners and aren't kept in this repo; point `LOGO_DIR` at a folder of 128px PNGs named after each provider to upload them. To render the icons again from the Papicons SVGs, set `PAPICONS_DIR` and run `npm run icons:build`.
+`npm run icons:upload` uploads the icons in `assets/icons` as server emojis named `nf_<icon>` and writes their IDs to `src/emojis.json`. `npx tsx scripts/upload-storage.ts` uploads the coloured status icons in `assets/icons/colored` (named after their meaning, for example `nf_flagged` or `nf_left_server`) and the provider logos to the emoji storage server set in `STORAGE_GUILD_ID`. Provider logos belong to their owners and aren't kept in this repo; point `LOGO_DIR` at a folder of 128px PNGs named after each provider to upload them. To render the icons again from the Papicons SVGs, set `PAPICONS_DIR` and run `npm run icons:build`.
 
 ## Configuration
 

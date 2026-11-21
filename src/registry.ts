@@ -4,6 +4,7 @@ import { banlistCommand } from "./commands/banlist.js";
 import { gbaninfoCommand } from "./commands/gbaninfo.js";
 import { globalbanCommand } from "./commands/globalban.js";
 import { globalunbanCommand } from "./commands/globalunban.js";
+import { helpCommand } from "./commands/help-definition.js";
 import { lookupCommand } from "./commands/lookup.js";
 import { safetyCommand } from "./commands/safety.js";
 import { statusCommand } from "./commands/status.js";
@@ -12,7 +13,11 @@ import { MAIN_GUILD_ID, PROTECTED_GUILD_IDS, SERVERS, extraCommandsFor } from ".
 const mainCommands = [banlistCommand, globalbanCommand, globalunbanCommand, gbaninfoCommand, lookupCommand, safetyCommand, statusCommand];
 const serverCommands = [banlistCommand];
 
-export const commandsFor = (guildId: string) => {
+const withHelp = <T,>(commands: T[]): (T | typeof helpCommand)[] => (commands.length ? [...commands, helpCommand] : []);
+
+export const commandsFor = (guildId: string) => withHelp(baseCommandsFor(guildId));
+
+const baseCommandsFor = (guildId: string) => {
   const extra = extraCommandsFor(guildId);
   if (PROTECTED_GUILD_IDS.has(guildId)) return mainCommands.filter((command) => extra.includes(command.name) && command.name !== "banlist" && !command.name.startsWith("global"));
   if (guildId === MAIN_GUILD_ID) return mainCommands;

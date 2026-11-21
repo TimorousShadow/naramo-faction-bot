@@ -14,15 +14,15 @@ import {
   type APIMessageComponentEmoji,
 } from "discord.js";
 import emojis from "./emojis.json" with { type: "json" };
-import { emojiName, logoEmojiName, type ColoredIcon, type IconName, type LogoName } from "./icon-set.js";
+import { coloredEmojiName, emojiName, logoEmojiName, type ColoredIcon, type ColorName, type IconName, type LogoName } from "./icon-set.js";
 
 const ids = emojis as Record<string, string>;
 
 export type AnyIcon = IconName | ColoredIcon;
 
 const resolve = (name: AnyIcon): string => {
-  const [base, color] = name.split(":") as [IconName, string | undefined];
-  return color ? `${emojiName(base)}_${color}` : emojiName(base);
+  const [base, color] = name.split(":") as [IconName, ColorName | undefined];
+  return color ? coloredEmojiName(base, color) : emojiName(base);
 };
 
 export const emoji = (name: AnyIcon): APIMessageComponentEmoji => ({ id: ids[resolve(name)], name: resolve(name) });
