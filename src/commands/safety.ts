@@ -9,10 +9,12 @@ import {
   SeparatorBuilder,
   SeparatorSpacingSize,
   SlashCommandBuilder,
+  StringSelectMenuBuilder,
   TextDisplayBuilder,
   ThumbnailBuilder,
   escapeMarkdown,
   type ButtonInteraction,
+  type StringSelectMenuInteraction,
   type ChatInputCommandInteraction,
 } from "discord.js";
 import { ensureAccess } from "../access.js";
@@ -38,6 +40,7 @@ interface View extends Subject {
   report: SafetyReport;
   globalBan: boolean;
   servers: { source: string; guild: WatcherGuild }[];
+  details: { title: string; lines: string[] }[];
 }
 
 const views = new Map<string, View>();
@@ -162,7 +165,45 @@ const serverBlock = (source: string, guild: WatcherGuild): string => {
   return text.length > BLOCK_LIMIT ? `${text.slice(0, BLOCK_LIMIT - 2)}…` : text;
 };
 
-const pageCount = (view: View): number => 1 + Math.ceil(view.servers.length / SERVERS_PER_PAGE);
+const DETAIL_BUDGET = 3200;
+
+const detailPages = (checks: CheckResult[]): { title: string; lines: string[] }[] => {
+  const pages: { title: string; lines: string[] }[] = [];
+  for (const check of checks) {
+    if (!check.details?.length || (check.state !== "flagged" && check.state !== "pending")) continue;
+    const header = `### ${icon(STATE_ICON[check.state])} ${providerLogo(check.name)}${check.name}`;
+    let current: string[] = [header];
+    let size = header.length;
+    let part = 1;
+    for (const line of check.details) {
+      if (size + line.length + 1 > DETAIL_BUDGET && current.length > 1) {
+        pages.push({ title: part === 1 ? check.name : `${check.name} (${part})`, lines: current });
+        part += 1;
+        current = [`### ${icon(STATE_ICON[check.state])} ${providerLogo(check.name)}${check.name} (continued)`];
+        size = current[0]!.length;
+      }
+      current.push(line);
+      size += line.length + 1;
+    }
+    pages.push({ title: part === 1 ? check.name : `${check.name} (${part})`, lines: current });
+  }
+  return pages;
+};
+
+const serverPageCount = (view: View): number => Math.ceil(view.servers.length / SERVERS_PER_PAGE);
+
+const pageCount = (view: View): number => 1 + view.details.length + serverPageCount(view);
+
+const sections = (view: View): { label: string; page: number }[] => {
+  const list = [{ label: "Overview", page: 0 }, ...view.details.map((detail, index) => ({ label: `Details: ${detail.title}`, page: 1 + index }))];
+  const first = 1 + view.details.length;
+  for (let index = 0; index < serverPageCount(view); index += 1) {
+    const from = index * SERVERS_PER_PAGE + 1;
+    const to = Math.min((index + 1) * SERVERS_PER_PAGE, view.servers.length);
+    list.push({ label: `Servers ${from}${to > from ? `-${to}` : ""}: ${view.servers[from - 1]!.source}`, page: first + index });
+  }
+  return list.slice(0, 25);
+};
 
 const overview = (view: View, container: ContainerBuilder): void => {
   const { report } = view;
@@ -191,7 +232,14 @@ const overview = (view: View, container: ContainerBuilder): void => {
   const flagged = report.checks.filter((check) => check.state === "flagged").length;
   const ran = report.checks.filter((check) => check.state !== "skipped" && check.state !== "error").length;
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent([`### Safety checks`, `Flagged by ${code(flagged)} of ${code(ran)} checks`, ...report.checks.map(checkLine)].join("\n")),
+    new TextDisplayBuilder().setContent(
+      [
+        `### Safety checks`,
+        `Flagged by ${code(flagged)} of ${code(ran)} checks`,
+        ...report.checks.map(checkLine),
+        ...(view.details.length ? [`-# Full details for each flag are on pages 2 to ${view.details.length + 1}. Use the menu below to jump.`] : []),
+      ].join("\n"),
+    ),
   );
 
   const activity = [
@@ -214,8 +262,11 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
   const current = Math.min(Math.max(page, 0), total - 1);
   const container = new ContainerBuilder();
   if (current === 0) overview(view, container);
-  else {
-    const slice = view.servers.slice((current - 1) * SERVERS_PER_PAGE, current * SERVERS_PER_PAGE);
+  else if (current <= view.details.length) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(view.details[current - 1]!.lines.join("\n")));
+  } else {
+    const serverPage = current - 1 - view.details.length;
+    const slice = view.servers.slice(serverPage * SERVERS_PER_PAGE, (serverPage + 1) * SERVERS_PER_PAGE);
     slice.forEach((entry, index) => {
       if (index > 0) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(serverBlock(entry.source, entry.guild)));
@@ -235,6 +286,17 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
         nav(current - 1, "chevron-left", current === 0),
         nav(current + 1, "chevron-right", current === total - 1),
         nav(total - 1, "arrow-right", current === total - 1),
+      ),
+    );
+  }
+  const jump = sections(view);
+  if (jump.length > 2) {
+    container.addActionRowComponents(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`safety:jump:${token}`)
+          .setPlaceholder("Jump to a section")
+          .addOptions(jump.map((entry) => ({ label: entry.label.slice(0, 100), value: String(entry.page), default: entry.page === current }))),
       ),
     );
   }
@@ -289,6 +351,7 @@ const report = async (interaction: ChatInputCommandInteraction | ButtonInteracti
     canGlobalBan: interaction.guildId === MAIN_GUILD_ID,
     report: result,
     globalBan: subject.discord ? Boolean(activeGlobalBan(subject.discord.id)) : false,
+    details: detailPages(result.checks),
     servers: [
       ...(result.robloxWatcher?.guilds ?? []).sort(byScore).map((guild) => ({ source: "Roblox Watcher", guild })),
       ...(result.exploitWatcher?.guilds ?? []).sort(byScore).map((guild) => ({ source: "Exploit Watcher", guild })),
@@ -330,4 +393,15 @@ export const handleSafetyButton = async (interaction: ButtonInteraction): Promis
   }
   if (!(await ensureAccess(interaction, "safety"))) return;
   await report(interaction, value ?? null, null);
+};
+
+export const handleSafetySelect = async (interaction: StringSelectMenuInteraction): Promise<void> => {
+  const token = interaction.customId.split(":")[2];
+  const view = token ? views.get(token) : undefined;
+  if (!view) {
+    await interaction.reply({ flags: privateV2, components: [errorPanel("This report expired", "Reports stay open for 30 minutes. Run /safety again for fresh results.")] });
+    return;
+  }
+  if (!(await ensureAccess(interaction, "safety"))) return;
+  await interaction.update({ components: [render(token!, view, Number(interaction.values[0] ?? 0))], allowedMentions: { parse: [] } });
 };

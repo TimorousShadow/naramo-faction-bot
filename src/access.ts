@@ -1,9 +1,9 @@
 // TimorousShadow
-import type { ButtonInteraction, ChatInputCommandInteraction, Client, ModalSubmitInteraction } from "discord.js";
+import type { ButtonInteraction, ChatInputCommandInteraction, Client, ModalSubmitInteraction, StringSelectMenuInteraction } from "discord.js";
 import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS, commandAccessRoles } from "./config.js";
 import { errorPanel, privateV2, v2 } from "./ui.js";
 
-type Gated = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction;
+type Gated = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction | StringSelectMenuInteraction;
 
 export const hasAccess = async (client: Client, userId: string): Promise<boolean> => {
   const member = await client.guilds.cache.get(MAIN_GUILD_ID)?.members.fetch(userId).catch(() => null);
@@ -24,7 +24,7 @@ export const ensureAccess = async (interaction: Gated, command: string): Promise
     ? `Only ${localRoles.map((role) => `<@&${role}>`).join(", ")} can use /${command} in this server.`
     : `Only members of Naramo Faction Management with the <@&${GLOBAL_BAN_ROLE_ID}> role can use /${command}.`;
   const components = [errorPanel("No access", message)];
-  if (interaction.isButton()) await interaction.reply({ components, flags: privateV2, allowedMentions: { parse: [] } });
+  if (interaction.isButton() || interaction.isStringSelectMenu()) await interaction.reply({ components, flags: privateV2, allowedMentions: { parse: [] } });
   else if (interaction.deferred || interaction.replied) await interaction.editReply({ flags: v2, components, allowedMentions: { parse: [] } });
   else await interaction.reply({ components, flags: v2, allowedMentions: { parse: [] } });
   return false;

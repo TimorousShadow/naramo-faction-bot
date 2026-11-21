@@ -1,10 +1,13 @@
 // TimorousShadow
+import { escapeMarkdown } from "discord.js";
+
 export type CheckState = "flagged" | "pending" | "clear" | "error" | "skipped";
 
 export interface CheckResult {
   name: string;
   state: CheckState;
   text: string;
+  details?: string[];
 }
 
 export interface LinkedAccount {
@@ -68,6 +71,78 @@ const skipped = (name: string, text: string): Promise<CheckResult> => Promise.re
 
 const code = (value: number | string): string => `\`${typeof value === "number" ? value.toLocaleString("en-US") : value}\``;
 
+const when = (value: number | string | null | undefined, style: "R" | "D" | "f" = "R"): string | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const ms = typeof value === "number" ? (value > 1e12 ? value : value * 1000) : Date.parse(value);
+  return Number.isNaN(ms) ? null : `<t:${Math.floor(ms / 1000)}:${style}>`;
+};
+
+const clean = (text: string, max = 80): string => {
+  const value = escapeMarkdown(text.replace(/(?:https?:\/\/)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/\S+/gi, "[invite]").replace(/\s+/g, " ").trim());
+  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+};
+
+const MAX_EVIDENCE = 25;
+
+interface Evidence {
+  kind?: string;
+  text?: string;
+  name?: string | null;
+  description?: string;
+  category?: string;
+  outfitId?: string | null;
+  discordId?: string;
+  serverId?: string;
+  safeName?: string;
+  types?: string[];
+  tags?: string[];
+  messages?: number;
+  typing?: number;
+  reactions?: number;
+  vcJoins?: number;
+  joinedAt?: number | null;
+  firstSeen?: number | null;
+  lastSeen?: number | null;
+  leftAt?: number | null;
+  verifiedLeft?: boolean;
+  staff?: boolean;
+  booster?: boolean;
+}
+
+const evidenceLine = (item: Evidence): string => {
+  if (item.kind === "discordGuild") {
+    const head = [`**${clean(item.safeName || item.name || "Unknown server")}**`, item.serverId ? code(item.serverId) : "", (item.types ?? []).map((type) => code(type)).join(" ")].filter(Boolean).join(" ");
+    const facts = [
+      item.messages ? `${code(item.messages)} messages` : "",
+      item.typing ? `${code(item.typing)} typing` : "",
+      item.reactions ? `${code(item.reactions)} reactions` : "",
+      item.vcJoins ? `${code(item.vcJoins)} VC joins` : "",
+      item.staff ? "staff" : "",
+      item.booster ? "booster" : "",
+      when(item.joinedAt, "D") ? `joined ${when(item.joinedAt, "D")}` : "",
+      when(item.firstSeen, "D") ? `first seen ${when(item.firstSeen, "D")}` : "",
+      when(item.lastSeen) ? `last seen ${when(item.lastSeen)}` : "",
+      when(item.leftAt) ? `left ${when(item.leftAt)}${item.verifiedLeft ? " (verified)" : ""}` : "",
+      (item.tags ?? []).length ? `tags ${(item.tags ?? []).map((tag) => code(tag)).join(" ")}` : "",
+    ].filter(Boolean);
+    return `- ${head}${facts.length ? `\n  -# ${facts.join(" · ")}` : ""}`;
+  }
+  if (item.kind === "discordUser") return `- Linked Discord account ${code(item.discordId ?? "unknown")}`;
+  if (item.kind === "outfit") return `- Outfit ${code(clean(item.name || "unnamed", 60))}${item.outfitId ? ` ${code(item.outfitId)}` : ""}${item.category ? ` · ${item.category}` : ""}`;
+  const label = (item.kind ?? "evidence").replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase());
+  const value = item.text || item.name || item.description || item.category || "";
+  return `- ${label}${value ? `: ${clean(value, 180)}` : ""}`;
+};
+
+const safeUrl = (value?: string): string | null => {
+  try {
+    const url = new URL(value ?? "");
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
+};
+
 const RAYWARD_PROVIDERS = [
   ["rotector", "Rotector"],
   ["serversweep", "ServerSweep"],
@@ -79,19 +154,49 @@ const RAYWARD_PROVIDERS = [
 const RAYWARD_LABELS: Record<number, string> = { 1: "Flagged", 2: "Confirmed", 3: "Queued", 4: "Provisional flag", 5: "Mixed", 6: "Past offender", 8: "Redacted", 10: "Awaiting human review" };
 
 interface RaywardBody {
-  data?: { flagType?: number | string; statusLabel?: string; reasons?: { title?: string }[] };
+  data?: {
+    flagType?: number | string;
+    statusLabel?: string;
+    headerMessage?: string;
+    categoryLabel?: string;
+    lastUpdated?: number;
+    processedAt?: number;
+    reviewer?: { username?: string; displayName?: string };
+    reasons?: { type?: string; title?: string; sources?: { label?: string; summary?: string; credit?: string }[]; evidence?: Evidence[] }[];
+  };
 }
 
 const rayward = (robloxId: string, provider: string, label: string) =>
   settle(`${label} via Rayward`, async () => {
-    const { status, body } = await request(`https://roscoe.rayward.app/v2/lookup/${provider}/roblox/user/${robloxId}?excludeInfo=true`, { Authorization: `Bearer ${process.env.RAYWARD_API_KEY}` });
+    const { status, body } = await request(`https://roscoe.rayward.app/v2/lookup/${provider}/roblox/user/${robloxId}?excludeInfo=false`, { Authorization: `Bearer ${process.env.RAYWARD_API_KEY}` });
     if (status !== 200) throw httpError("Rayward", status);
     const data = (body as RaywardBody).data;
     const flagType = Number(data?.flagType ?? 0);
     if (flagType === 0) return { state: "clear", text: "not flagged" };
     const classification = data?.statusLabel?.trim() || RAYWARD_LABELS[flagType] || `classification ${flagType}`;
     const reasons = (data?.reasons ?? []).map((reason) => reason.title).filter(Boolean).slice(0, 3).join(", ");
-    return { state: flagType === 3 || flagType === 10 ? "pending" : "flagged", text: `${code(classification)}${reasons ? ` ${reasons}` : ""}` };
+    const meta = [
+      data?.categoryLabel ? `Category ${code(data.categoryLabel)}` : "",
+      data?.reviewer?.displayName ? `Reviewed by ${clean(data.reviewer.displayName, 40)}` : "",
+      when(data?.lastUpdated) ? `Updated ${when(data?.lastUpdated)}` : "",
+      when(data?.processedAt) ? `Processed ${when(data?.processedAt)}` : "",
+    ].filter(Boolean);
+    const details = [
+      ...(data?.headerMessage ? [`> ${clean(data.headerMessage, 300)}`] : []),
+      `Status ${code(classification)}${meta.length ? ` · ${meta.join(" · ")}` : ""}`,
+      ...(data?.reasons ?? []).flatMap((reason) => {
+        const evidence = reason.evidence ?? [];
+        const sources = (reason.sources ?? []).map((source) => [source.label, source.summary, source.credit ? `credit ${source.credit}` : ""].filter(Boolean).join(": ")).filter(Boolean);
+        return [
+          "",
+          `**${clean(reason.title || reason.type || "Reason", 80)}**${evidence.length ? ` · ${code(evidence.length)} evidence item${evidence.length === 1 ? "" : "s"}` : ""}`,
+          ...sources.map((source) => `-# Source: ${clean(source, 200)}`),
+          ...evidence.slice(0, MAX_EVIDENCE).map(evidenceLine),
+          ...(evidence.length > MAX_EVIDENCE ? [`-# and ${evidence.length - MAX_EVIDENCE} more`] : []),
+        ];
+      }),
+    ];
+    return { state: flagType === 3 || flagType === 10 ? "pending" : "flagged", text: `${code(classification)}${reasons ? ` ${reasons}` : ""}`, details };
   });
 
 const fetchWatcher = async (product: "robloxwatcher" | "exploitwatcher", discordId: string): Promise<WatcherData> => {
@@ -132,8 +237,17 @@ const simmer = (robloxId: string) =>
     if (status !== 200) throw httpError("Simmer", status);
     const data = body as { success?: boolean; groupCount?: number; groupTypes?: Record<string, { count?: number }> };
     if (!data.success || !data.groupCount) return { state: "clear", text: "not in any flagged group" };
-    const types = Object.entries(data.groupTypes ?? {}).map(([name, value]) => `${name} ${value.count ?? 0}`).join(", ");
-    return { state: "flagged", text: `in ${code(data.groupCount)} flagged group${data.groupCount === 1 ? "" : "s"}${types ? `, ${types}` : ""}` };
+    const entries = Object.entries(data.groupTypes ?? {});
+    const types = entries.map(([name, value]) => `${name} ${value.count ?? 0}`).join(", ");
+    const lastSeen = (data as { lastSeen?: string }).lastSeen;
+    return {
+      state: "flagged",
+      text: `in ${code(data.groupCount)} flagged group${data.groupCount === 1 ? "" : "s"}${types ? `, ${types}` : ""}`,
+      details: [
+        `In ${code(data.groupCount)} flagged Roblox group${data.groupCount === 1 ? "" : "s"}${when(lastSeen) ? ` · last seen ${when(lastSeen)}` : ""}`,
+        ...entries.map(([name, value]) => `- ${clean(name, 60)}: ${code(value.count ?? 0)}`),
+      ],
+    };
   });
 
 const xTracker = (robloxId: string) =>
@@ -142,8 +256,9 @@ const xTracker = (robloxId: string) =>
     const [registry, ownership] = await Promise.all(["registry", "ownership"].map((path) => request(`https://api.xtracker.xyz/api/${path}/user?id=${robloxId}`, headers)));
     for (const [response, label] of [[registry!, "registry"], [ownership!, "ownership"]] as const)
       if (response.status !== 200 && response.status !== 404) throw httpError(`X Tracker ${label}`, response.status);
-    const record = (registry!.status === 200 ? registry!.body : null) as { evidence?: { reason?: string }[]; alts?: unknown } | null;
-    const evidence = (record?.evidence ?? []).map((entry) => entry.reason).filter((reason): reason is string => Boolean(reason));
+    const record = (registry!.status === 200 ? registry!.body : null) as { evidence?: { reason?: string; date?: string; url?: string }[]; alts?: unknown } | null;
+    const entries = record?.evidence ?? [];
+    const evidence = entries.map((entry) => entry.reason).filter((reason): reason is string => Boolean(reason));
     const altsRaw = typeof record?.alts === "string" ? (JSON.parse(record.alts || "[]") as unknown) : record?.alts;
     const alts = Array.isArray(altsRaw) ? altsRaw.length : 0;
     const owned = ((ownership!.status === 200 ? (ownership!.body as { owned_cheat?: unknown }).owned_cheat : null) ?? []) as unknown[];
@@ -152,7 +267,15 @@ const xTracker = (robloxId: string) =>
       ...(alts ? [`${code(alts)} known alt${alts === 1 ? "" : "s"}`] : []),
       ...(owned.length ? [`owns ${owned.map((item) => code(String(item))).slice(0, 3).join(", ")}`] : []),
     ];
-    return hits.length ? { state: "flagged", text: hits.join("; ") } : { state: "clear", text: "no records" };
+    const altIds = Array.isArray(altsRaw) ? altsRaw.map(String).filter((value) => /^\d{1,20}$/.test(value)) : [];
+    const details = [
+      ...(entries.length
+        ? ["**Registry evidence**", ...entries.slice(0, MAX_EVIDENCE).map((entry) => `- ${clean(entry.reason ?? "No reason given", 160)}${entry.date ? ` · ${clean(entry.date, 40)}` : ""}${safeUrl(entry.url) ? ` · [evidence](${safeUrl(entry.url)})` : ""}`)]
+        : []),
+      ...(altIds.length ? ["", "**Known alts**", ...altIds.slice(0, 15).map((alt) => `- [${alt}](https://www.roblox.com/users/${alt}/profile)`)] : []),
+      ...(owned.length ? ["", "**Owned cheats**", ...owned.slice(0, 15).map((item) => `- ${code(clean(String(item), 40))}`)] : []),
+    ];
+    return hits.length ? { state: "flagged", text: hits.join("; "), details } : { state: "clear", text: "no records" };
   });
 
 const catWatcher = (robloxId: string) =>
@@ -160,11 +283,28 @@ const catWatcher = (robloxId: string) =>
     const { status, body } = await request(`https://catwatcher.org/api/roblox/${robloxId}`, { "X-API-Key": process.env.CATWATCHER_API_KEY ?? "" });
     if (status === 404) return { state: "clear", text: "no cheater records" };
     if (status !== 200) throw httpError("Cat Watcher", status);
-    const data = body as { recordCount?: number; summary?: { currentlyActive?: number } };
-    const records = data.recordCount ?? 0;
+    const data = body as {
+      recordCount?: number;
+      summary?: { currentlyActive?: number; lastActivity?: string | null };
+      linkedDiscordIds?: string[];
+      records?: { discordId?: string; firstCaught?: string; lastChecked?: string; stillInServers?: boolean; currentServers?: string[]; previousServers?: string[]; caughtByAdmin?: string }[];
+    };
+    const records = Math.max(data.recordCount ?? 0, data.records?.length ?? 0);
     if (!records) return { state: "clear", text: "no cheater records" };
     const active = data.summary?.currentlyActive ?? 0;
-    return { state: "flagged", text: `${code(records)} cheater record${records === 1 ? "" : "s"}${active ? `, ${code(active)} still active` : ""}` };
+    const list = (values?: string[]): string => (values ?? []).slice(0, 6).map((value) => code(clean(value, 40))).join(" ");
+    const details = [
+      `${code(records)} record${records === 1 ? "" : "s"}${active ? ` · ${code(active)} still in servers` : ""}${when(data.summary?.lastActivity) ? ` · last activity ${when(data.summary?.lastActivity)}` : ""}`,
+      ...(data.records ?? []).slice(0, 10).flatMap((record, index) => [
+        "",
+        `**Record ${index + 1}**${record.discordId ? ` · Discord ${code(record.discordId)}` : ""}${record.stillInServers ? " · still in servers" : ""}`,
+        [when(record.firstCaught, "D") ? `First caught ${when(record.firstCaught, "D")}` : "", when(record.lastChecked) ? `last checked ${when(record.lastChecked)}` : "", record.caughtByAdmin ? `caught by admin ${code(record.caughtByAdmin)}` : ""].filter(Boolean).join(" · "),
+        ...((record.currentServers ?? []).length ? [`Now in: ${list(record.currentServers)}`] : []),
+        ...((record.previousServers ?? []).length ? [`Previously in: ${list(record.previousServers)}`] : []),
+      ]),
+      ...((data.linkedDiscordIds ?? []).length ? ["", `Linked Discord accounts: ${(data.linkedDiscordIds ?? []).slice(0, 10).map((value) => code(value)).join(" ")}`] : []),
+    ];
+    return { state: "flagged", text: `${code(records)} cheater record${records === 1 ? "" : "s"}${active ? `, ${code(active)} still active` : ""}`, details };
   });
 
 export const runSafetyChecks = async (discordId: string | null, robloxId: string | null): Promise<SafetyReport> => {

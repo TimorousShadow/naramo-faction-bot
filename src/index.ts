@@ -6,7 +6,7 @@ import { runGbaninfo } from "./commands/gbaninfo.js";
 import { handleGlobalbanButton, handleGlobalbanModal, runGlobalban } from "./commands/globalban.js";
 import { handleGlobalunbanButton, handleGlobalunbanModal, runGlobalunban } from "./commands/globalunban.js";
 import { runLookup } from "./commands/lookup.js";
-import { handleSafetyButton, runSafety } from "./commands/safety.js";
+import { handleSafetyButton, handleSafetySelect, runSafety } from "./commands/safety.js";
 import { runStatus } from "./commands/status.js";
 import { errorPanel, v2 } from "./ui.js";
 import { watchGuild, watchInteraction } from "./watcher.js";
@@ -60,6 +60,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     if (interaction.isChatInputCommand()) await commands[interaction.commandName]?.(interaction);
     else if (interaction.isButton()) await buttons[interaction.customId.split(":")[0] ?? ""]?.(interaction);
+    else if (interaction.isStringSelectMenu() && interaction.customId.startsWith("safety:")) await handleSafetySelect(interaction);
     else if (interaction.isModalSubmit()) await modals[interaction.customId.split(":")[0] ?? ""]?.(interaction);
   } catch (error) {
     failure = error;
