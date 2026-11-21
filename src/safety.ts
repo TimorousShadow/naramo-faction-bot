@@ -21,6 +21,8 @@ const TIMEOUT = 10_000;
 
 const request = async (url: string, headers: Record<string, string>): Promise<{ status: number; body: unknown }> => {
   const response = await fetch(url, { headers: { Accept: "application/json", ...headers }, redirect: "error", signal: AbortSignal.timeout(TIMEOUT) });
+  if (response.headers.get("cf-mitigated") === "challenge" || (response.status === 403 && response.headers.get("content-type")?.includes("text/html")))
+    throw new Error(`${new URL(url).hostname} blocked the server with a Cloudflare challenge`);
   const body: unknown = await response.json().catch(() => null);
   return { status: response.status, body };
 };
