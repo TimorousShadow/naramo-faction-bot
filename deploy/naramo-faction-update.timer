@@ -1,0 +1,10 @@
+# TimorousShadow
+[Unit]
+Description=Check for Naramo Faction bot updates every two minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target

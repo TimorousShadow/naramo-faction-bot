@@ -1,0 +1,18 @@
+# TimorousShadow
+[Unit]
+Description=Naramo Faction Discord bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=naramo
+WorkingDirectory=/opt/naramo-faction
+EnvironmentFile=/etc/naramo-faction.env
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
