@@ -2,6 +2,13 @@
   "mainGuildId": "1462393527987212451",
   "adminRoleId": "1462395153217228915",
   "watcherChannelId": "1573828120971317358",
+  "protectedGuilds": [
+    {
+      "id": "1367336998586679296",
+      "name": "Naramo Administration & Moderation Services",
+      "reason": "appeals"
+    }
+  ],
   "globalBan": {
     "roleId": "1462395487658184806",
     "logChannelId": "1573818593999593514"
