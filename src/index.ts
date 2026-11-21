@@ -2,6 +2,7 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { handleBanlistButton, runBanlist } from "./commands/banlist.js";
+import { handleGlobalbanButton, runGlobalban } from "./commands/globalban.js";
 import { errorPanel, privateV2, v2 } from "./ui.js";
 
 const token = process.env.DISCORD_TOKEN;
@@ -14,7 +15,9 @@ client.once(Events.ClientReady, (ready) => console.log(`Logged in as ${ready.use
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
     if (interaction.isChatInputCommand() && interaction.commandName === "banlist") await runBanlist(interaction);
+    else if (interaction.isChatInputCommand() && interaction.commandName === "globalban") await runGlobalban(interaction);
     else if (interaction.isButton() && interaction.customId.startsWith("banlist:")) await handleBanlistButton(interaction);
+    else if (interaction.isButton() && interaction.customId.startsWith("globalban:")) await handleGlobalbanButton(interaction);
   } catch (error) {
     console.error(error);
     if (!interaction.isRepliable()) return;
