@@ -1,6 +1,6 @@
 # TimorousShadow
 [Unit]
-Description=Deploy the latest CI-passing commit of the Naramo Faction bot
+Description=Deploy the latest checked commit of the Naramo Faction bot
 After=network-online.target
 
 [Service]

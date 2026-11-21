@@ -21,7 +21,7 @@ npm start
 
 ## Deployment
 
-Every push to `main` runs the typecheck in GitHub Actions. The production VM checks `main` every two minutes and deploys a new commit once its CI run has passed. The files for that are in `deploy/`.
+Every push to `main` runs the typecheck in GitHub Actions. The production VM checks `main` every two minutes, type-checks new commits in a staging copy and deploys them if that passes and GitHub CI has not failed. The files for that are in `deploy/`.
 
 ## Credits
 
