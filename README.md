@@ -16,13 +16,15 @@ The commands below only exist in Naramo Faction Management and need the Access r
 
 `/lookup user:` shows one person across the network: account age, Roblox account through Bloxlink, global ban status, and membership, join date and top roles in each server.
 
+`/safety user: roblox:` runs every safety checker on a Discord user, a Roblox username or ID, or both: Rotector, ServerSweep, Okappiki, RAB and TASE via Rayward, Roblox Watcher, Exploit Watcher, Simmer, X Tracker and Cat Watcher. It also lists other Discord accounts linked to the same Roblox account. `/lookup` has a button that runs it for the person shown.
+
 `/status` checks each server: whether the bot is there, whether it has Ban Members, Manage Server and View Audit Log, and how many roles sit above it. It also shows the global ban count, the log channel, Bloxlink and the running version.
 
-Global bans and unbans are posted to the global ban log channel.
+Global bans and unbans are posted to the global ban log channel. Command replies are visible in the channel.
 
 ## Running it
 
-Needs Node 24. Global bans are stored in SQLite under `DATA_DIR` (default `~/.naramo-faction`). Set `BLOXLINK_API_KEY` and `BLOXLINK_GUILD_ID` to show Roblox accounts in `/lookup`.
+Needs Node 24. Global bans are stored in SQLite under `DATA_DIR` (default `~/.naramo-faction`). Set `BLOXLINK_API_KEY` and `BLOXLINK_GUILD_ID` to find Roblox accounts; Roblox Watcher is used when Bloxlink has no link. Each safety checker runs when its key is set in `.env` (see `.env.example`).
 
 ```sh
 cp .env.example .env

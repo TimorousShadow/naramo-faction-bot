@@ -3,7 +3,7 @@ import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.j
 import { ensureAccess } from "../access.js";
 import { banLine, checkBans, userLabel } from "../network.js";
 import { globalBanHistory } from "../store.js";
-import { line, panel, privateV2, time } from "../ui.js";
+import { line, panel, time, v2 } from "../ui.js";
 
 export const gbaninfoCommand = new SlashCommandBuilder()
   .setName("gbaninfo")
@@ -13,7 +13,7 @@ export const gbaninfoCommand = new SlashCommandBuilder()
 
 export const runGbaninfo = async (interaction: ChatInputCommandInteraction): Promise<void> => {
   if (!(await ensureAccess(interaction, "gbaninfo"))) return;
-  await interaction.deferReply({ flags: privateV2 });
+  await interaction.deferReply();
   const targetId = interaction.options.getUser("user", true).id;
   const [label, servers] = await Promise.all([userLabel(interaction.client, targetId), checkBans(interaction.client, targetId)]);
   const history = globalBanHistory(targetId);
@@ -36,6 +36,7 @@ export const runGbaninfo = async (interaction: ChatInputCommandInteraction): Pro
     : [];
 
   await interaction.editReply({
+    flags: v2,
     components: [
       panel({
         icon: latest && latest.liftedAt === null ? "user-cross" : "search",

@@ -11,7 +11,7 @@ import { SERVERS, type ServerEntry } from "../config.js";
 import { failureText, postLog, userLabel } from "../network.js";
 import { PendingStore } from "../pending.js";
 import { activeGlobalBan, recordGlobalBan } from "../store.js";
-import { button, errorPanel, line, panel, privateV2, reasonModal, time } from "../ui.js";
+import { button, errorPanel, line, panel, privateV2, reasonModal, time, v2 } from "../ui.js";
 
 type Outcome = { server: ServerEntry; status: "banned" | "already" | "failed" | "missing"; detail?: string };
 
@@ -34,14 +34,14 @@ const describe = (outcome: Outcome): string => {
 const confirm = async (interaction: ChatInputCommandInteraction | ModalSubmitInteraction, targetId: string, reason: string): Promise<void> => {
   const blocked = await targetBlock(interaction.client, interaction.user.id, targetId);
   if (blocked) {
-    await interaction.reply({ components: [errorPanel("Can't ban this user", blocked)], flags: privateV2, allowedMentions: { parse: [] } });
+    await interaction.reply({ components: [errorPanel("Can't ban this user", blocked)], flags: v2, allowedMentions: { parse: [] } });
     return;
   }
   const existing = activeGlobalBan(targetId);
   if (existing) {
     await interaction.reply({
       components: [errorPanel("Already globally banned", `<@${targetId}> was globally banned by <@${existing.issuedBy}> ${time(existing.issuedAt, "R")}.\n-# ${existing.reason}`, "Use /gbaninfo for the details or /globalunban to lift it.")],
-      flags: privateV2,
+      flags: v2,
       allowedMentions: { parse: [] },
     });
     return;
@@ -70,7 +70,7 @@ const confirm = async (interaction: ChatInputCommandInteraction | ModalSubmitInt
         footer: `Nothing happens until you confirm. This expires ${time(expiresAt, "R")}.`,
       }),
     ],
-    flags: privateV2,
+    flags: v2,
     allowedMentions: { parse: [] },
   });
 };
@@ -147,6 +147,7 @@ export const handleGlobalbanButton = async (interaction: ButtonInteraction): Pro
   const missing = outcomes.filter((outcome) => outcome.status === "missing").length;
 
   await interaction.editReply({
+    flags: v2,
     components: [
       panel({
         icon: failed ? "alert-triangle" : "check",

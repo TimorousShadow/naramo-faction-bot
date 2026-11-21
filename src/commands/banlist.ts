@@ -53,7 +53,7 @@ const fetchBannedIds = async (guild: Guild): Promise<Set<string>> => {
 const fail = (interaction: ChatInputCommandInteraction | ButtonInteraction, title: string, body: string) => {
   const components = [errorPanel(title, body)];
   if (interaction.deferred || interaction.replied) return interaction.editReply({ components, flags: v2 });
-  return interaction.reply({ components, flags: privateV2 });
+  return interaction.reply({ components, flags: v2 });
 };
 
 export const runBanlist = async (interaction: ChatInputCommandInteraction): Promise<void> => {
@@ -82,7 +82,7 @@ export const runBanlist = async (interaction: ChatInputCommandInteraction): Prom
     return;
   }
 
-  await interaction.deferReply({ flags: privateV2 });
+  await interaction.deferReply();
 
   let text: string;
   try {

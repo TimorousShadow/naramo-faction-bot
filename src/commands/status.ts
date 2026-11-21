@@ -5,9 +5,17 @@ import { ensureAccess } from "../access.js";
 import { GLOBAL_BAN_LOG_CHANNEL_ID, MAIN_GUILD_ID, SERVERS } from "../config.js";
 import { robloxConfigured } from "../roblox.js";
 import { globalBanCounts } from "../store.js";
-import { icon, line, panel, privateV2, time } from "../ui.js";
+import { icon, line, panel, time, v2 } from "../ui.js";
 
 const startedAt = Date.now();
+const SAFETY_KEYS = [
+  ["RAYWARD_API_KEY", "Rayward"],
+  ["ROBLOX_WATCHER_API_KEY", "Roblox Watcher"],
+  ["EXPLOIT_WATCHER_API_KEY", "Exploit Watcher"],
+  ["SIMMER_API_KEY", "Simmer"],
+  ["XTRACKER_API_KEY", "X Tracker"],
+  ["CATWATCHER_API_KEY", "Cat Watcher"],
+] as const;
 const version = (() => {
   try {
     return execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -39,7 +47,7 @@ const serverCheck = (name: string, guild: Guild | undefined): string => {
 
 export const runStatus = async (interaction: ChatInputCommandInteraction): Promise<void> => {
   if (!(await ensureAccess(interaction, "status"))) return;
-  await interaction.deferReply({ flags: privateV2 });
+  await interaction.deferReply();
   const client = interaction.client;
   const main = client.guilds.cache.get(MAIN_GUILD_ID);
   await Promise.all([main, ...SERVERS.map((server) => client.guilds.cache.get(server.id))].map((guild) => guild?.roles.fetch().catch(() => null)));
@@ -48,6 +56,7 @@ export const runStatus = async (interaction: ChatInputCommandInteraction): Promi
   const ready = SERVERS.filter((server) => client.guilds.cache.has(server.id)).length;
 
   await interaction.editReply({
+    flags: v2,
     components: [
       panel({
         icon: "pie",
@@ -60,6 +69,7 @@ export const runStatus = async (interaction: ChatInputCommandInteraction): Promi
           line("archive", "Global bans", `${counts.active} active, ${counts.total} on record`),
           line("text-bubble", "Ban log", log?.isSendable() ? `<#${GLOBAL_BAN_LOG_CHANNEL_ID}>` : "channel not reachable"),
           line("link", "Bloxlink", robloxConfigured() ? "configured" : "not configured"),
+          line("search", "Safety checkers", `${SAFETY_KEYS.filter(([key]) => process.env[key]).map(([, name]) => name).join(", ") || "none configured"}`),
           line("clock", "Up since", `${time(startedAt, "R")}, ping ${client.ws.ping} ms, version \`${version}\``),
         ],
       }),

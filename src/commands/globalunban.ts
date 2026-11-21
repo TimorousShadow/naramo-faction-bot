@@ -11,7 +11,7 @@ import { SERVERS, type ServerEntry } from "../config.js";
 import { checkBans, failureText, isUnknownBan, postLog, userLabel } from "../network.js";
 import { PendingStore } from "../pending.js";
 import { activeGlobalBan, liftGlobalBan } from "../store.js";
-import { button, errorPanel, line, panel, privateV2, reasonModal, time } from "../ui.js";
+import { button, errorPanel, line, panel, privateV2, reasonModal, time, v2 } from "../ui.js";
 
 type Outcome = { server: ServerEntry; status: "lifted" | "clear" | "failed" | "missing"; detail?: string };
 
@@ -34,9 +34,10 @@ const describe = (outcome: Outcome): string => {
 const confirm = async (interaction: ChatInputCommandInteraction | ModalSubmitInteraction, targetId: string, reason: string): Promise<void> => {
   const ban = activeGlobalBan(targetId);
   if (!ban) {
-    await interaction.deferReply({ flags: privateV2 });
+    await interaction.deferReply();
     const local = (await checkBans(interaction.client, targetId)).filter((entry) => entry.state === "banned").map((entry) => entry.server.name);
     await interaction.editReply({
+    flags: v2,
       components: [
         errorPanel(
           "No active global ban",
@@ -69,7 +70,7 @@ const confirm = async (interaction: ChatInputCommandInteraction | ModalSubmitInt
         footer: `Nothing happens until you confirm. This expires ${time(expiresAt, "R")}.`,
       }),
     ],
-    flags: privateV2,
+    flags: v2,
     allowedMentions: { parse: [] },
   });
 };
@@ -138,6 +139,7 @@ export const handleGlobalunbanButton = async (interaction: ButtonInteraction): P
   const failed = outcomes.filter((outcome) => outcome.status === "failed").length;
 
   await interaction.editReply({
+    flags: v2,
     components: [
       panel({
         icon: failed ? "alert-triangle" : "check",

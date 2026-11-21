@@ -1,11 +1,11 @@
 // TimorousShadow
-import { SlashCommandBuilder, type ChatInputCommandInteraction, type Client } from "discord.js";
+import { ButtonStyle, SlashCommandBuilder, type ChatInputCommandInteraction, type Client } from "discord.js";
 import { ensureAccess } from "../access.js";
 import { MAIN_GUILD_ID, SERVERS } from "../config.js";
 import { checkBans } from "../network.js";
 import { robloxForDiscord } from "../roblox.js";
 import { activeGlobalBan } from "../store.js";
-import { line, linkButton, panel, privateV2, time } from "../ui.js";
+import { button, line, linkButton, panel, time, v2 } from "../ui.js";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -32,7 +32,7 @@ const memberLine = async (client: Client, guildId: string, name: string, userId:
 
 export const runLookup = async (interaction: ChatInputCommandInteraction): Promise<void> => {
   if (!(await ensureAccess(interaction, "lookup"))) return;
-  await interaction.deferReply({ flags: privateV2 });
+  await interaction.deferReply();
   const user = await interaction.client.users.fetch(interaction.options.getUser("user", true).id, { force: true });
   const [roblox, bans] = await Promise.all([robloxForDiscord(user.id), checkBans(interaction.client, user.id)]);
   const banned = new Set(bans.filter((ban) => ban.state === "banned").map((ban) => ban.server.id));
@@ -51,6 +51,7 @@ export const runLookup = async (interaction: ChatInputCommandInteraction): Promi
         : line("link", "Roblox", "Bloxlink lookup unavailable");
 
   await interaction.editReply({
+    flags: v2,
     components: [
       panel({
         icon: "user",
@@ -64,7 +65,10 @@ export const runLookup = async (interaction: ChatInputCommandInteraction): Promi
           line("home", "Servers", ""),
           ...servers,
         ],
-        ...(roblox.status === "linked" ? { buttons: [linkButton("Roblox profile", `https://www.roblox.com/users/${roblox.account.id}/profile`)] } : {}),
+        buttons: [
+          button(`safety:run:${user.id}`, "Safety check", ButtonStyle.Secondary, "search"),
+          ...(roblox.status === "linked" ? [linkButton("Roblox profile", `https://www.roblox.com/users/${roblox.account.id}/profile`)] : []),
+        ],
       }),
     ],
     allowedMentions: { parse: [] },

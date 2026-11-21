@@ -6,8 +6,9 @@ import { runGbaninfo } from "./commands/gbaninfo.js";
 import { handleGlobalbanButton, handleGlobalbanModal, runGlobalban } from "./commands/globalban.js";
 import { handleGlobalunbanButton, handleGlobalunbanModal, runGlobalunban } from "./commands/globalunban.js";
 import { runLookup } from "./commands/lookup.js";
+import { handleSafetyButton, runSafety } from "./commands/safety.js";
 import { runStatus } from "./commands/status.js";
-import { errorPanel, privateV2 } from "./ui.js";
+import { errorPanel, v2 } from "./ui.js";
 
 const token = process.env.DISCORD_TOKEN;
 if (!token) throw new Error("DISCORD_TOKEN is required.");
@@ -19,12 +20,14 @@ const commands: Record<string, (interaction: ChatInputCommandInteraction) => Pro
   gbaninfo: runGbaninfo,
   lookup: runLookup,
   status: runStatus,
+  safety: runSafety,
 };
 
 const buttons: Record<string, (interaction: ButtonInteraction) => Promise<void>> = {
   banlist: handleBanlistButton,
   globalban: handleGlobalbanButton,
   globalunban: handleGlobalunbanButton,
+  safety: handleSafetyButton,
 };
 
 const modals: Record<string, (interaction: ModalSubmitInteraction) => Promise<void>> = {
@@ -45,8 +48,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     console.error(error);
     if (!interaction.isRepliable()) return;
     const components = [errorPanel("Something went wrong", "The action stopped before it finished. Check the result with /gbaninfo or /status before trying again.")];
-    if (interaction.deferred || interaction.replied) await interaction.editReply({ components }).catch(() => undefined);
-    else await interaction.reply({ components, flags: privateV2 }).catch(() => undefined);
+    if (interaction.deferred || interaction.replied) await interaction.editReply({ flags: v2, components }).catch(() => undefined);
+    else await interaction.reply({ components, flags: v2 }).catch(() => undefined);
   }
 });
 
