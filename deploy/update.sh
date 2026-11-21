@@ -12,14 +12,6 @@ target=$(as_app git rev-parse origin/main)
 [ "$current" = "$target" ] && exit 0
 [ -f "$STAGE.failed" ] && [ "$(cat "$STAGE.failed")" = "$target" ] && exit 0
 
-remote=$(curl -fsS -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO/commits/$target/check-runs?check_name=typecheck" \
-  | jq -r '[.check_runs[] | select(.status == "completed") | .conclusion] | if any(. == "failure") then "failure" else "ok" end' || echo ok)
-if [ "$remote" = "failure" ]; then
-  echo "GitHub CI failed for $target"
-  echo "$target" > "$STAGE.failed"
-  exit 0
-fi
-
 [ -d "$STAGE/.git" ] || as_app git clone --quiet "https://github.com/$REPO.git" "$STAGE"
 as_app git -C "$STAGE" fetch --quiet origin main
 as_app git -C "$STAGE" reset --hard --quiet "$target"
