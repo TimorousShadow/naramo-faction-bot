@@ -6,11 +6,23 @@ Discord bot for the Naramo Faction Management server.
 
 `/banlist file:` bans every Discord user ID in a CSV. Only administrators can run it. The file can be one ID per line, or a table with a column named `id`, `user id` or `discord_id`. The bot shows what it found, skips accounts that are already banned, and waits for you to confirm. IDs that Excel rounded (like `1.42E+18`) are reported so you can export them again as text. It works in every server the bot is in.
 
-`/globalban user: reason:` bans a user from the servers listed in `config.json` (ANRO, NES and NMP). It only exists in Naramo Faction Management and needs the Access role there. After confirmation, the bot bans the user in each of those servers it has joined, reports what happened per server, and posts the result to the global ban log channel. It refuses to ban the person running it, the bot, a server owner or anyone with the Access role.
+The commands below only exist in Naramo Faction Management and need the Access role there.
+
+`/globalban user: reason:` bans a user from the servers listed in `config.json` (ANRO, NES and NMP) and records it as a global ban. Leave the reason empty to type it in a form. Members of Naramo Faction Management can only be targeted by the admin role, and admins can't be targeted at all. Server owners, the bot and the person running the command are refused too.
+
+`/globalunban user: reason:` lifts a recorded global ban in every server and logs it. Bans that weren't made with `/globalban` are left alone.
+
+`/gbaninfo user:` shows whether someone is globally banned, who banned them and why, any lifted ban, and their ban in each server with the moderator from the audit log.
+
+`/lookup user:` shows one person across the network: account age, Roblox account through Bloxlink, global ban status, and membership, join date and top roles in each server.
+
+`/status` checks each server: whether the bot is there, whether it has Ban Members, Manage Server and View Audit Log, and how many roles sit above it. It also shows the global ban count, the log channel, Bloxlink and the running version.
+
+Global bans and unbans are posted to the global ban log channel.
 
 ## Running it
 
-Needs Node 24.
+Needs Node 24. Global bans are stored in SQLite under `DATA_DIR` (default `~/.naramo-faction`). Set `BLOXLINK_API_KEY` and `BLOXLINK_GUILD_ID` to show Roblox accounts in `/lookup`.
 
 ```sh
 cp .env.example .env

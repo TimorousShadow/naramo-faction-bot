@@ -5,9 +5,12 @@ import {
   ButtonStyle,
   ContainerBuilder,
   MessageFlags,
+  ModalBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
   TextDisplayBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   type APIMessageComponentEmoji,
 } from "discord.js";
 import emojis from "./emojis.json" with { type: "json" };
@@ -64,3 +67,17 @@ export const errorPanel = (title: string, body: string, footer?: string): Contai
 
 export const v2 = MessageFlags.IsComponentsV2;
 export const privateV2 = MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral;
+
+export const reasonModal = (customId: string, title: string, placeholder: string): ModalBuilder =>
+  new ModalBuilder()
+    .setCustomId(customId)
+    .setTitle(title)
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder().setCustomId("reason").setLabel("Reason").setStyle(TextInputStyle.Paragraph).setMinLength(3).setMaxLength(400).setPlaceholder(placeholder).setRequired(true),
+      ),
+    );
+
+export const linkButton = (label: string, url: string): ButtonBuilder => new ButtonBuilder().setLabel(label).setURL(url).setStyle(ButtonStyle.Link);
+
+export const time = (ms: number, style: "R" | "f" | "D" | "F" = "f"): string => `<t:${Math.floor(ms / 1000)}:${style}>`;
