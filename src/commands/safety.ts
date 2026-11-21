@@ -149,7 +149,7 @@ const serverBlock = (source: string, guild: WatcherGuild): string => {
   const flags = (guild.guildFlags ?? []).map((flag) => code(flag)).join(", ");
 
   const text = [
-    `### ${icon(left ? "logout:red" : "login:green")} ${cleanName(guild.name)} (${code(guild.id)})`,
+    `### ${icon(inServer === "No" ? "logout:red" : inServer === "Yes" ? "login:green" : "minus:grey")} ${cleanName(guild.name)} (${code(guild.id)})`,
     `-# ${source}`,
     joined,
     ...(leaves.length ? [`Left ${plural(leaves.length, "time")}, last ${ts(leaves.at(-1), "R") ?? code("Unknown")}`] : []),
