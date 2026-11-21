@@ -16,6 +16,7 @@ import {
   type ChatInputCommandInteraction,
 } from "discord.js";
 import { ensureAccess } from "../access.js";
+import { MAIN_GUILD_ID } from "../config.js";
 import { robloxForDiscord } from "../roblox.js";
 import { resolveRobloxUsername, runSafetyChecks, type CheckResult, type SafetyReport, type WatcherData, type WatcherGuild } from "../safety.js";
 import { activeGlobalBan } from "../store.js";
@@ -33,6 +34,7 @@ interface Subject {
 }
 
 interface View extends Subject {
+  canGlobalBan: boolean;
   report: SafetyReport;
   globalBan: boolean;
   servers: { source: string; guild: WatcherGuild }[];
@@ -237,7 +239,7 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
     );
   }
   const actions: ButtonBuilder[] = [
-    ...(view.discord && !view.globalBan ? [button(`safety:gban:${view.discord.id}`, "Global ban", ButtonStyle.Danger, "user-cross:red")] : []),
+    ...(view.discord && !view.globalBan && view.canGlobalBan ? [button(`safety:gban:${view.discord.id}`, "Global ban", ButtonStyle.Danger, "user-cross:red")] : []),
     ...(view.roblox ? [linkButton("Roblox profile", `https://www.roblox.com/users/${view.roblox.id}/profile`)] : []),
   ];
   if (actions.length) container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(actions));
@@ -284,6 +286,7 @@ const report = async (interaction: ChatInputCommandInteraction | ButtonInteracti
   const byScore = (a: WatcherGuild, b: WatcherGuild) => (b.score ?? 0) - (a.score ?? 0);
   const view: View = {
     ...subject,
+    canGlobalBan: interaction.guildId === MAIN_GUILD_ID,
     report: result,
     globalBan: subject.discord ? Boolean(activeGlobalBan(subject.discord.id)) : false,
     servers: [

@@ -7,13 +7,18 @@ import { globalunbanCommand } from "./commands/globalunban.js";
 import { lookupCommand } from "./commands/lookup.js";
 import { safetyCommand } from "./commands/safety.js";
 import { statusCommand } from "./commands/status.js";
-import { MAIN_GUILD_ID, PROTECTED_GUILD_IDS, SERVERS } from "./config.js";
+import { MAIN_GUILD_ID, PROTECTED_GUILD_IDS, SERVERS, extraCommandsFor } from "./config.js";
 
 const mainCommands = [banlistCommand, globalbanCommand, globalunbanCommand, gbaninfoCommand, lookupCommand, safetyCommand, statusCommand];
 const serverCommands = [banlistCommand];
 
-export const commandsFor = (guildId: string) =>
-  PROTECTED_GUILD_IDS.has(guildId) ? [] : guildId === MAIN_GUILD_ID ? mainCommands : SERVERS.some((server) => server.id === guildId) ? serverCommands : [];
+export const commandsFor = (guildId: string) => {
+  if (PROTECTED_GUILD_IDS.has(guildId)) return [];
+  if (guildId === MAIN_GUILD_ID) return mainCommands;
+  if (!SERVERS.some((server) => server.id === guildId)) return [];
+  const extra = extraCommandsFor(guildId);
+  return [...serverCommands, ...mainCommands.filter((command) => extra.includes(command.name) && !serverCommands.includes(command))];
+};
 
 export const registerGuild = async (rest: REST, applicationId: string, guildId: string): Promise<string> => {
   const commands = commandsFor(guildId);

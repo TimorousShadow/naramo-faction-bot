@@ -1,6 +1,6 @@
 // TimorousShadow
 import type { ButtonInteraction, ChatInputCommandInteraction, Client, ModalSubmitInteraction } from "discord.js";
-import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS } from "./config.js";
+import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS, commandAccessRoles } from "./config.js";
 import { errorPanel, privateV2, v2 } from "./ui.js";
 
 type Gated = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction;
@@ -10,9 +10,20 @@ export const hasAccess = async (client: Client, userId: string): Promise<boolean
   return member?.roles.cache.has(GLOBAL_BAN_ROLE_ID) ?? false;
 };
 
+const memberRoleIds = (interaction: Gated): string[] => {
+  const roles = interaction.member?.roles;
+  if (!roles) return [];
+  return Array.isArray(roles) ? roles : [...roles.cache.keys()];
+};
+
 export const ensureAccess = async (interaction: Gated, command: string): Promise<boolean> => {
   if (interaction.guildId === MAIN_GUILD_ID && (await hasAccess(interaction.client, interaction.user.id))) return true;
-  const components = [errorPanel("No access", `Only members of Naramo Faction Management with the <@&${GLOBAL_BAN_ROLE_ID}> role can use /${command}.`)];
+  const localRoles = commandAccessRoles(interaction.guildId, command);
+  if (localRoles.length && memberRoleIds(interaction).some((role) => localRoles.includes(role))) return true;
+  const message = localRoles.length
+    ? `Only ${localRoles.map((role) => `<@&${role}>`).join(", ")} can use /${command} in this server.`
+    : `Only members of Naramo Faction Management with the <@&${GLOBAL_BAN_ROLE_ID}> role can use /${command}.`;
+  const components = [errorPanel("No access", message)];
   if (interaction.isButton()) await interaction.reply({ components, flags: privateV2, allowedMentions: { parse: [] } });
   else if (interaction.deferred || interaction.replied) await interaction.editReply({ flags: v2, components, allowedMentions: { parse: [] } });
   else await interaction.reply({ components, flags: v2, allowedMentions: { parse: [] } });

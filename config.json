@@ -9,6 +9,15 @@
       "reason": "appeals"
     }
   ],
+  "commandAccess": [
+    {
+      "guildId": "1386407365653299352",
+      "command": "safety",
+      "roles": [
+        "1504873010463637504"
+      ]
+    }
+  ],
   "globalBan": {
     "roleId": "1462395487658184806",
     "logChannelId": "1573818593999593514"

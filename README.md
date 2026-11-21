@@ -37,7 +37,7 @@ npm start
 
 ## Configuration
 
-`config.json` holds the main server, the watcher channel, the protected servers (where the bot registers no commands and global bans never apply, such as the appeals server), the role and log channel for global bans, and the list of servers a global ban applies to.
+`config.json` holds the main server, the watcher channel, per-server command access (for example, a role in NES that may use `/safety` there), the protected servers (where the bot registers no commands and global bans never apply, such as the appeals server), the role and log channel for global bans, and the list of servers a global ban applies to.
 
 ## Deployment
 
