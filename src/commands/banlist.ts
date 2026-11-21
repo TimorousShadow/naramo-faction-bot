@@ -137,7 +137,7 @@ export const runBanlist = async (interaction: ChatInputCommandInteraction): Prom
 
   if (targets.length === 0) {
     await interaction.editReply({
-      components: [panel({ icon: "check", title: "Nothing to ban", body: `Every ID in \`${file.name}\` is already banned or can't be banned.`, details })],
+      components: [panel({ icon: "check:green", title: "Nothing to ban", body: `Every ID in \`${file.name}\` is already banned or can't be banned.`, details })],
       flags: v2,
     });
     return;
@@ -157,7 +157,7 @@ export const runBanlist = async (interaction: ChatInputCommandInteraction): Prom
         body: [`\`${file.name}\` will ban **${plural(targets.length, "account")}** from ${guild.name}.`, "", sample, ...(targets.length > 5 ? [`-# and ${targets.length - 5} more`] : [])],
         details,
         buttons: [
-          button(`banlist:confirm:${token}`, `Ban ${plural(targets.length, "account")}`, ButtonStyle.Danger, "user-cross"),
+          button(`banlist:confirm:${token}`, `Ban ${plural(targets.length, "account")}`, ButtonStyle.Danger, "user-cross:red"),
           button(`banlist:cancel:${token}`, "Cancel", ButtonStyle.Secondary, "cross"),
         ],
         footer: `Nothing happens until you confirm. This expires <t:${Math.floor(expiresAt / 1000)}:R>.`,
@@ -217,7 +217,7 @@ export const handleBanlistButton = async (interaction: ButtonInteraction): Promi
     ...(failedIds.length ? [line("alert-triangle", "Not banned", `${failedIds.length.toLocaleString("en-US")}. The IDs are in the attached file.`)] : []),
   ];
   const result = panel({
-    icon: failedIds.length ? "alert-triangle" : "check",
+    icon: failedIds.length ? "alert-triangle:red" : "check:green",
     title: failedIds.length ? "Ban list finished with errors" : "Ban list done",
     body: failedIds.length
       ? "Discord refused some bans. Usually the account no longer exists, or it has a role above mine."

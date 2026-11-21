@@ -64,7 +64,7 @@ const confirm = async (interaction: ChatInputCommandInteraction | ModalSubmitInt
           line("text-bubble", "Unban reason", reason),
         ],
         buttons: [
-          button(`globalunban:confirm:${token}`, "Lift everywhere", ButtonStyle.Primary, "unlock"),
+          button(`globalunban:confirm:${token}`, "Lift everywhere", ButtonStyle.Primary, "unlock:green"),
           button(`globalunban:cancel:${token}`, "Cancel", ButtonStyle.Secondary, "cross"),
         ],
         footer: `Nothing happens until you confirm. This expires ${time(expiresAt, "R")}.`,
@@ -142,7 +142,7 @@ export const handleGlobalunbanButton = async (interaction: ButtonInteraction): P
     flags: v2,
     components: [
       panel({
-        icon: failed ? "alert-triangle" : "check",
+        icon: failed ? "alert-triangle:red" : "check:green",
         title: failed ? "Global ban lifted with errors" : "Global ban lifted",
         body: failed ? `<@${targetId}> is off the global ban list, but some servers refused the unban.` : `<@${targetId}> is off the global ban list.`,
         details: [line("user", "User", label.text), line("text-bubble", "Reason", reason), "", lines],
@@ -154,7 +154,7 @@ export const handleGlobalunbanButton = async (interaction: ButtonInteraction): P
   await postLog(
     interaction.client,
     panel({
-      icon: "unlock",
+      icon: "unlock:green",
       title: "Global ban lifted",
       body: `<@${targetId}>`,
       details: [

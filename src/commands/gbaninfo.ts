@@ -39,7 +39,7 @@ export const runGbaninfo = async (interaction: ChatInputCommandInteraction): Pro
     flags: v2,
     components: [
       panel({
-        icon: latest && latest.liftedAt === null ? "user-cross" : "search",
+        icon: latest && latest.liftedAt === null ? "user-cross:red" : "search",
         title: "Global ban status",
         body: [`<@${targetId}>`, status],
         details: [line("user", "User", label.text), ...record, "", line("home", "Servers", ""), ...servers.map(banLine)],

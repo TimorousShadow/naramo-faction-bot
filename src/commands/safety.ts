@@ -19,7 +19,8 @@ import { ensureAccess } from "../access.js";
 import { robloxForDiscord } from "../roblox.js";
 import { resolveRobloxUsername, runSafetyChecks, type CheckResult, type SafetyReport, type WatcherData, type WatcherGuild } from "../safety.js";
 import { activeGlobalBan } from "../store.js";
-import { button, emoji, errorPanel, icon, linkButton, privateV2, reasonModal, v2 } from "../ui.js";
+import { button, emoji, errorPanel, icon, linkButton, logo, privateV2, reasonModal, v2 } from "../ui.js";
+import type { LogoName } from "../icon-set.js";
 
 const TTL_MS = 30 * 60 * 1000;
 const SERVERS_PER_PAGE = 2;
@@ -56,7 +57,20 @@ const cleanName = (name: string): string =>
   escapeMarkdown(name.replace(/(?:https?:\/\/)?(?:discord\.gg|discord(?:app)?\.com\/invite)\/\S+/gi, "[invite]")).slice(0, 80).trim() || "Unknown server";
 const titleCase = (key: string): string => key.replace(/([A-Z])/g, " $1").replace(/^./, (char) => char.toUpperCase()).trim();
 
-const STATE_ICON = { flagged: "alert-triangle", pending: "clock", clear: "check", error: "alert-circle", skipped: "minus" } as const;
+const STATE_ICON = { flagged: "alert-triangle:red", pending: "clock:amber", clear: "check:green", error: "alert-circle:amber", skipped: "minus:grey" } as const;
+
+const PROVIDER_LOGOS: [string, LogoName][] = [
+  ["Rotector", "rotector"],
+  ["ServerSweep", "serversweep"],
+  ["Okappiki", "okappiki"],
+  ["RAB", "rab"],
+  ["TASE", "tase"],
+  ["Roblox Watcher", "robloxwatcher"],
+  ["Exploit Watcher", "robloxwatcher"],
+  ["Simmer", "simmer"],
+  ["X Tracker", "xtracker"],
+  ["Cat Watcher", "catwatcher"],
+];
 
 const ACTIVITY: [string, (count: number) => string][] = [
   ["messages", (n) => `Sent ${plural(n, "message")}`],
@@ -87,7 +101,12 @@ const totals = (data: WatcherData): string[] => {
   ];
 };
 
-const checkLine = (check: CheckResult): string => `${icon(STATE_ICON[check.state])} **${check.name}** ${check.text}`;
+const providerLogo = (name: string): string => {
+  const match = PROVIDER_LOGOS.find(([prefix]) => name.startsWith(prefix));
+  return match ? `${logo(match[1])} ` : "";
+};
+
+const checkLine = (check: CheckResult): string => `${icon(STATE_ICON[check.state])} ${providerLogo(check.name)}**${check.name}** ${check.text}`;
 
 const serverBlock = (source: string, guild: WatcherGuild): string => {
   const joins = guild.guildJoins ?? [];
@@ -114,8 +133,8 @@ const serverBlock = (source: string, guild: WatcherGuild): string => {
     .map(([key]) => titleCase(key));
   const notableRoles = (guild.roles ?? []).filter((role) => role.type).slice(0, 4).map((role) => `${code(escapeMarkdown(role.name).slice(0, 40))} ${role.type}`);
   const memberLines = [
-    ...(membership.owner === true ? [`${icon("crown")} Owner`] : []),
-    ...(membership.staff === true ? [`${icon("gears")} Staff`] : []),
+    ...(membership.owner === true ? [`${icon("crown:amber")} Owner`] : []),
+    ...(membership.staff === true ? [`${icon("gears:blurple")} Staff`] : []),
     ...(permissions ? [`└ Permissions: ${permissions}`] : []),
     ...(extras.length ? [`${icon("star")} ${extras.join(", ")}`] : []),
     ...((guild.roles ?? []).length ? [`${icon("list")} ${plural(guild.roles!.length, "role")}${notableRoles.length ? `: ${notableRoles.join(", ")}` : ""}`] : []),
@@ -125,7 +144,7 @@ const serverBlock = (source: string, guild: WatcherGuild): string => {
   const flags = (guild.guildFlags ?? []).map((flag) => code(flag)).join(", ");
 
   const text = [
-    `### ${icon(left ? "logout" : "login")} ${cleanName(guild.name)} (${code(guild.id)})`,
+    `### ${icon(left ? "logout:red" : "login:green")} ${cleanName(guild.name)} (${code(guild.id)})`,
     `-# ${source}`,
     joined,
     ...(leaves.length ? [`Left ${plural(leaves.length, "time")}, last ${ts(leaves.at(-1), "R") ?? code("Unknown")}`] : []),
@@ -148,7 +167,7 @@ const overview = (view: View, container: ContainerBuilder): void => {
   const heading = view.discord
     ? [`### @${escapeMarkdown(view.discord.username)} (${code(view.discord.id)})`, "**Discord information**", `<@${view.discord.id}>`, `Account created: <t:${Math.floor(view.discord.created / 1000)}:F>`]
     : [`### ${escapeMarkdown(view.roblox!.name)} (${code(view.roblox!.id)})`, "**Roblox account only**", "No Discord account was given, so the Discord checks were skipped."];
-  if (view.globalBan) heading.push(`${icon("globe")} Globally banned`);
+  if (view.globalBan) heading.push(`${icon("globe:red")} Globally banned`);
   const thumbnail = view.discord?.avatar ?? view.roblox?.avatar;
   const section = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(heading.join("\n")));
   if (thumbnail) section.setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail));
@@ -161,7 +180,7 @@ const overview = (view: View, container: ContainerBuilder): void => {
         `**[${escapeMarkdown(view.roblox.name)}](https://www.roblox.com/users/${view.roblox.id}/profile)** (${code(view.roblox.id)})`,
         ...report.linkedDiscord
           .slice(0, 6)
-          .map((account) => `└ ${icon(account.flagged ? "alert-circle" : "user")} <@${account.id}> (${code(account.id)})${account.sources.length ? ` · Source: ${account.sources.join(" & ")}` : ""}`),
+          .map((account) => `└ ${icon(account.flagged ? "alert-circle:red" : "user")} <@${account.id}> (${code(account.id)})${account.sources.length ? ` · Source: ${account.sources.join(" & ")}` : ""}`),
       ]
     : ["No Roblox account found."];
   container.addTextDisplayComponents(new TextDisplayBuilder().setContent(["### Connected accounts", ...connected, ...(view.note ? [`-# ${view.note}`] : [])].join("\n")));
@@ -218,7 +237,7 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
     );
   }
   const actions: ButtonBuilder[] = [
-    ...(view.discord && !view.globalBan ? [button(`safety:gban:${view.discord.id}`, "Global ban", ButtonStyle.Danger, "user-cross")] : []),
+    ...(view.discord && !view.globalBan ? [button(`safety:gban:${view.discord.id}`, "Global ban", ButtonStyle.Danger, "user-cross:red")] : []),
     ...(view.roblox ? [linkButton("Roblox profile", `https://www.roblox.com/users/${view.roblox.id}/profile`)] : []),
   ];
   if (actions.length) container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(actions));

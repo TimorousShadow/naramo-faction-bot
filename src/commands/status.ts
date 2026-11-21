@@ -36,13 +36,13 @@ export const statusCommand = new SlashCommandBuilder()
   .setDMPermission(false);
 
 const serverCheck = (name: string, guild: Guild | undefined): string => {
-  if (!guild) return `${icon("minus")} **${name}**: bot not added yet`;
+  if (!guild) return `${icon("minus:grey")} **${name}**: bot not added yet`;
   const me = guild.members.me;
   if (!me) return `${icon("alert-triangle")} **${name}**: couldn't read the bot's member`;
   const missing = NEEDED.filter(([flag]) => !me.permissions.has(flag)).map(([, label]) => label);
   const above = guild.roles.cache.filter((role) => role.position > me.roles.highest.position).size;
   const problems = [...(missing.length ? [`missing ${missing.join(", ")}`] : []), ...(above ? [`${above} role${above === 1 ? "" : "s"} above the bot can't be banned`] : [])];
-  return `${icon(problems.length ? "alert-triangle" : "check")} **${name}**: ${problems.length ? problems.join("; ") : "ready"}\n-# ${guild.memberCount.toLocaleString("en-US")} members, bot role ${me.roles.highest.name}`;
+  return `${icon(problems.length ? "alert-circle:amber" : "check:green")} **${name}**: ${problems.length ? problems.join("; ") : "ready"}\n-# ${guild.memberCount.toLocaleString("en-US")} members, bot role ${me.roles.highest.name}`;
 };
 
 export const runStatus = async (interaction: ChatInputCommandInteraction): Promise<void> => {

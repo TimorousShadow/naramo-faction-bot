@@ -33,7 +33,7 @@ npm run register
 npm start
 ```
 
-`npm run icons:upload` uploads the icons in `assets/icons` as server emojis named `nf_<icon>` and writes their IDs to `src/emojis.json`. To render the icons again from the Papicons SVGs, set `PAPICONS_DIR` and run `npm run icons:build`.
+`npm run icons:upload` uploads the icons in `assets/icons` as server emojis named `nf_<icon>` and writes their IDs to `src/emojis.json`. `npx tsx scripts/upload-storage.ts` uploads the coloured icons in `assets/icons/colored` (named `nf_<icon>_<colour>`) and the provider logos to the emoji storage server set in `STORAGE_GUILD_ID`. Provider logos belong to their owners and aren't kept in this repo; point `LOGO_DIR` at a folder of 128px PNGs named after each provider to upload them. To render the icons again from the Papicons SVGs, set `PAPICONS_DIR` and run `npm run icons:build`.
 
 ## Configuration
 

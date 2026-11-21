@@ -14,21 +14,33 @@ import {
   type APIMessageComponentEmoji,
 } from "discord.js";
 import emojis from "./emojis.json" with { type: "json" };
-import { emojiName, type IconName } from "./icon-set.js";
+import { emojiName, logoEmojiName, type ColoredIcon, type IconName, type LogoName } from "./icon-set.js";
 
 const ids = emojis as Record<string, string>;
 
-export const emoji = (icon: IconName): APIMessageComponentEmoji => ({ id: ids[emojiName(icon)], name: emojiName(icon) });
+export type AnyIcon = IconName | ColoredIcon;
 
-export const icon = (name: IconName): string => {
-  const id = ids[emojiName(name)];
-  return id ? `<:${emojiName(name)}:${id}>` : "";
+const resolve = (name: AnyIcon): string => {
+  const [base, color] = name.split(":") as [IconName, string | undefined];
+  return color ? `${emojiName(base)}_${color}` : emojiName(base);
 };
 
-export const line = (name: IconName, label: string, value: string): string => `${icon(name)} **${label}** ${value}`;
+export const emoji = (name: AnyIcon): APIMessageComponentEmoji => ({ id: ids[resolve(name)], name: resolve(name) });
+
+export const icon = (name: AnyIcon): string => {
+  const id = ids[resolve(name)];
+  return id ? `<:${resolve(name)}:${id}>` : "";
+};
+
+export const logo = (name: LogoName): string => {
+  const id = ids[logoEmojiName(name)];
+  return id ? `<:${logoEmojiName(name)}:${id}>` : "";
+};
+
+export const line = (name: AnyIcon, label: string, value: string): string => `${icon(name)} **${label}** ${value}`;
 
 export interface PanelOptions {
-  icon: IconName;
+  icon: AnyIcon;
   title: string;
   body?: string | string[];
   details?: string[];
@@ -57,13 +69,13 @@ export const panel = (options: PanelOptions): ContainerBuilder => {
   return container;
 };
 
-export const button = (id: string, label: string, style: ButtonStyle, name?: IconName): ButtonBuilder => {
+export const button = (id: string, label: string, style: ButtonStyle, name?: AnyIcon): ButtonBuilder => {
   const built = new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
-  return name && ids[emojiName(name)] ? built.setEmoji(emoji(name)) : built;
+  return name && ids[resolve(name)] ? built.setEmoji(emoji(name)) : built;
 };
 
 export const errorPanel = (title: string, body: string, footer?: string): ContainerBuilder =>
-  panel({ icon: "alert-circle", title, body, ...(footer ? { footer } : {}) });
+  panel({ icon: "alert-circle:red", title, body, ...(footer ? { footer } : {}) });
 
 export const v2 = MessageFlags.IsComponentsV2;
 export const privateV2 = MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral;

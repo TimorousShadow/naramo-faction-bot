@@ -64,7 +64,7 @@ const confirm = async (interaction: ChatInputCommandInteraction | ModalSubmitInt
           line("home", "Servers", SERVERS.map((server) => (interaction.client.guilds.cache.has(server.id) ? server.name : `${server.name} (bot not added yet)`)).join(", ")),
         ],
         buttons: [
-          button(`globalban:confirm:${token}`, "Ban everywhere", ButtonStyle.Danger, "user-cross"),
+          button(`globalban:confirm:${token}`, "Ban everywhere", ButtonStyle.Danger, "user-cross:red"),
           button(`globalban:cancel:${token}`, "Cancel", ButtonStyle.Secondary, "cross"),
         ],
         footer: `Nothing happens until you confirm. This expires ${time(expiresAt, "R")}.`,
@@ -150,7 +150,7 @@ export const handleGlobalbanButton = async (interaction: ButtonInteraction): Pro
     flags: v2,
     components: [
       panel({
-        icon: failed ? "alert-triangle" : "check",
+        icon: failed ? "alert-triangle:red" : "check:green",
         title: failed ? "Global ban finished with errors" : "Global ban done",
         body: `<@${targetId}> is banned in ${banned + already} of ${outcomes.length} servers and recorded as globally banned.`,
         details: [line("user", "User", label.text), line("text-bubble", "Reason", reason), "", lines],
@@ -162,7 +162,7 @@ export const handleGlobalbanButton = async (interaction: ButtonInteraction): Pro
   await postLog(
     interaction.client,
     panel({
-      icon: "user-cross",
+      icon: "user-cross:red",
       title: "Global ban",
       body: `<@${targetId}>`,
       details: [
