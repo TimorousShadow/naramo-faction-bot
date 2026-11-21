@@ -237,7 +237,7 @@ const overview = (view: View, container: ContainerBuilder): void => {
         `### Safety checks`,
         `Flagged by ${code(flagged)} of ${code(ran)} checks`,
         ...report.checks.map(checkLine),
-        ...(view.details.length ? [`-# Full details for each flag are on pages 2 to ${view.details.length + 1}. Use the menu below to jump.`] : []),
+        ...(view.details.length ? [`-# Full details are on ${view.details.length === 1 ? "page 2" : `pages 2 to ${view.details.length + 1}`}. Use the menu below to jump.`] : []),
       ].join("\n"),
     ),
   );
@@ -246,11 +246,18 @@ const overview = (view: View, container: ContainerBuilder): void => {
     ["Roblox Watcher", report.robloxWatcher],
     ["Exploit Watcher", report.exploitWatcher],
   ] as const;
-  const blocks = activity.flatMap(([name, data]) =>
-    data && data.guilds.length
-      ? [[`**${name} total activity score (across all servers):** ${code(data.totalScore)}`, `- **Detected in ${plural(data.guilds.length, "server")}**`, ...totals(data).map((line) => `  - ${line}`)].join("\n")]
-      : [],
-  );
+  const blocks = activity.flatMap(([name, data]) => {
+    if (!data || !data.guilds.length) return [];
+    const lines = totals(data);
+    const names = data.guilds.slice(0, 6).map((guild) => `  - ${cleanName(guild.name)}${(guild.guildTypes ?? [])[0]?.name ? ` ${code(guild.guildTypes![0]!.name!)}` : ""}`);
+    return [
+      [
+        `**${name} total activity score (across all servers):** ${code(data.totalScore)}`,
+        `- **Detected in ${plural(data.guilds.length, "server")}**`,
+        ...(lines.length ? lines.map((line) => `  - ${line}`) : ["  - No recorded activity, flagged for membership only", ...names, ...(data.guilds.length > 6 ? [`  - and ${data.guilds.length - 6} more`] : [])]),
+      ].join("\n"),
+    ];
+  });
   if (blocks.length) {
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(["### Activity", ...blocks].join("\n\n")));
@@ -290,7 +297,7 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
     );
   }
   const jump = sections(view);
-  if (jump.length > 2) {
+  if (jump.length > 1) {
     container.addActionRowComponents(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         new StringSelectMenuBuilder()

@@ -19,8 +19,9 @@ export interface LinkedAccount {
 export interface WatcherGuild {
   id: string;
   name: string;
-  guildTypes?: { name?: string }[];
+  guildTypes?: { name?: string; description?: string }[];
   guildFlags?: string[];
+  detectionVersion?: number;
   score?: number | null;
   guildJoins?: string[];
   guildLeaves?: string[];
@@ -208,6 +209,44 @@ const fetchWatcher = async (product: "robloxwatcher" | "exploitwatcher", discord
   return { flagged: Boolean(data.flagged), totalScore: data.totalScore ?? 0, guilds: data.guilds ?? [] };
 };
 
+const watcherGuildLine = (guild: WatcherGuild): string => {
+  const joins = guild.guildJoins ?? [];
+  const leaves = guild.guildLeaves ?? [];
+  const activity = Object.entries(guild.activity ?? {}).filter(([, value]) => typeof value === "number" && value > 0);
+  const membership = Object.entries(guild.membership ?? {})
+    .filter(([key, value]) => value === true && key !== "allTimePermissions")
+    .map(([key]) => key.replace(/([A-Z])/g, " $1").toLowerCase());
+  const head = [`**${clean(guild.name || "Unknown server")}**`, code(guild.id), ...(guild.guildTypes ?? []).map((type) => (type.name ? code(type.name) : "")), ...(guild.guildFlags ?? []).map((flag) => `*${flag}*`)].filter(Boolean).join(" ");
+  const facts = [
+    `score ${code(Math.round((guild.score ?? 0) * 100) / 100)}`,
+    guild.detectionVersion ? `detection v${guild.detectionVersion}` : "",
+    joins.length ? `joined ${joins.map((value) => when(value, "D")).filter(Boolean).slice(0, 3).join(", ")}` : when(guild.estimatedJoin, "D") ? `joined around ${when(guild.estimatedJoin, "D")}` : "join date unknown",
+    leaves.length ? `left ${when(leaves.at(-1), "D")}` : "",
+    when(guild.lastActivity) ? `last active ${when(guild.lastActivity)}` : "",
+    ...activity.map(([key, value]) => `${code(value)} ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`),
+    ...membership,
+    (guild.membership?.allTimePermissions ?? []).length ? `permissions ${(guild.membership?.allTimePermissions ?? []).slice(0, 5).map((permission) => code(permission)).join(" ")}` : "",
+    (guild.roles ?? []).length ? `roles ${(guild.roles ?? []).slice(0, 5).map((role) => code(clean(role.name, 30))).join(" ")}${guild.roles!.length > 5 ? ` +${guild.roles!.length - 5}` : ""}` : "",
+  ].filter(Boolean);
+  return `- ${head}\n  -# ${facts.join(" · ")}`;
+};
+
+const watcherDetails = (data: WatcherData): string[] => {
+  const guilds = [...data.guilds].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const types = new Map<string, string>();
+  for (const guild of guilds) for (const type of guild.guildTypes ?? []) if (type.name && type.description) types.set(type.name, type.description);
+  const active = guilds.some((guild) => Object.values(guild.activity ?? {}).some((value) => typeof value === "number" && value > 0));
+  return [
+    `Total score ${code(Math.round(data.totalScore * 100) / 100)} across ${code(guilds.length)} server${guilds.length === 1 ? "" : "s"}${active ? "" : " · no recorded activity, flagged for membership only"}`,
+    ...[...types.entries()].map(([name, description]) => `-# ${code(name)} ${clean(description, 200)}`),
+    "",
+    ...guilds.slice(0, MAX_EVIDENCE).map(watcherGuildLine),
+    ...(guilds.length > MAX_EVIDENCE ? [`-# and ${guilds.length - MAX_EVIDENCE} more, see the server pages`] : []),
+    "",
+    "-# Detection v2 started around May 2026. Servers marked v1 come from older join logs and may have less detail.",
+  ];
+};
+
 const watcherSummary = (data: WatcherData, kind: string): Omit<CheckResult, "name"> => {
   if (!data.flagged && data.guilds.length === 0) return { state: "clear", text: `no ${kind} servers` };
   const types = new Map<string, number>();
@@ -216,6 +255,7 @@ const watcherSummary = (data: WatcherData, kind: string): Omit<CheckResult, "nam
   return {
     state: data.flagged ? "flagged" : "clear",
     text: `score ${code(Math.round(data.totalScore))} in ${code(data.guilds.length)} server${data.guilds.length === 1 ? "" : "s"}${breakdown ? `, ${breakdown}` : ""}`,
+    details: watcherDetails(data),
   };
 };
 
