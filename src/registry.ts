@@ -7,10 +7,11 @@ import { globalunbanCommand } from "./commands/globalunban.js";
 import { helpCommand } from "./commands/help-definition.js";
 import { lookupCommand } from "./commands/lookup.js";
 import { safetyCommand } from "./commands/safety.js";
+import { serversCommand } from "./commands/servers.js";
 import { statusCommand } from "./commands/status.js";
 import { MAIN_GUILD_ID, PROTECTED_GUILD_IDS, SERVERS, extraCommandsFor } from "./config.js";
 
-const mainCommands = [banlistCommand, globalbanCommand, globalunbanCommand, gbaninfoCommand, lookupCommand, safetyCommand, statusCommand];
+const mainCommands = [banlistCommand, globalbanCommand, globalunbanCommand, gbaninfoCommand, lookupCommand, safetyCommand, serversCommand, statusCommand];
 const serverCommands = [banlistCommand];
 
 const withHelp = <T,>(commands: T[]): (T | typeof helpCommand)[] => (commands.length ? [...commands, helpCommand] : []);

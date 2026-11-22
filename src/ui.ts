@@ -92,4 +92,4 @@ export const reasonModal = (customId: string, title: string, placeholder: string
 
 export const linkButton = (label: string, url: string): ButtonBuilder => new ButtonBuilder().setLabel(label).setURL(url).setStyle(ButtonStyle.Link);
 
-export const time = (ms: number, style: "R" | "f" | "D" | "F" = "f"): string => `<t:${Math.floor(ms / 1000)}:${style}>`;
+export const time = (ms: number, style: "R" | "f" | "D" | "F" | "t" = "f"): string => `<t:${Math.floor(ms / 1000)}:${style}>`;

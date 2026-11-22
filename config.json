@@ -29,6 +29,10 @@
     "roleId": "1462395487658184806",
     "logChannelId": "1573818593999593514"
   },
+  "game": {
+    "placeId": "98626216952426",
+    "name": "Naramo Nuclear Plant"
+  },
   "servers": [
     {
       "id": "1373417102115078215",

@@ -13,6 +13,7 @@ const DESCRIPTIONS: Record<string, string> = {
   gbaninfo: "A user's global ban status and their ban in each server.",
   lookup: "A user across the Naramo servers: account age, Roblox account, roles and bans.",
   safety: "Every safety checker on a Discord user or Roblox account, with full details per flag.",
+  servers: "Live game servers with player, FPS and ping graphs, a week map and a page per server.",
   status: "The bot's access and permissions in each server.",
 };
 

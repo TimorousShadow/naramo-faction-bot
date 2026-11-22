@@ -8,7 +8,9 @@ import { handleGlobalbanButton, handleGlobalbanModal, runGlobalban } from "./com
 import { handleGlobalunbanButton, handleGlobalunbanModal, runGlobalunban } from "./commands/globalunban.js";
 import { runLookup } from "./commands/lookup.js";
 import { handleSafetyButton, handleSafetySelect, runSafety } from "./commands/safety.js";
+import { handleServersButton, handleServersSelect, runServers } from "./commands/servers.js";
 import { runStatus } from "./commands/status.js";
+import { startCollector } from "./servers/collector.js";
 import { errorPanel, v2 } from "./ui.js";
 import { watchGuild, watchInteraction } from "./watcher.js";
 import { PROTECTED_GUILD_IDS, extraCommandsFor } from "./config.js";
@@ -25,6 +27,7 @@ const commands: Record<string, (interaction: ChatInputCommandInteraction) => Pro
   lookup: runLookup,
   status: runStatus,
   safety: runSafety,
+  servers: runServers,
   help: runHelp,
 };
 
@@ -33,6 +36,7 @@ const buttons: Record<string, (interaction: ButtonInteraction) => Promise<void>>
   globalban: handleGlobalbanButton,
   globalunban: handleGlobalunbanButton,
   safety: handleSafetyButton,
+  servers: handleServersButton,
 };
 
 const modals: Record<string, (interaction: ModalSubmitInteraction) => Promise<void>> = {
@@ -42,7 +46,10 @@ const modals: Record<string, (interaction: ModalSubmitInteraction) => Promise<vo
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.once(Events.ClientReady, (ready) => console.log(`Logged in as ${ready.user.tag}`));
+client.once(Events.ClientReady, (ready) => {
+  console.log(`Logged in as ${ready.user.tag}`);
+  startCollector();
+});
 
 client.on(Events.GuildCreate, (guild) => {
   watchGuild(client, guild, true);
@@ -66,6 +73,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.isChatInputCommand()) await commands[interaction.commandName]?.(interaction);
     else if (interaction.isButton()) await buttons[interaction.customId.split(":")[0] ?? ""]?.(interaction);
     else if (interaction.isStringSelectMenu() && interaction.customId.startsWith("safety:")) await handleSafetySelect(interaction);
+    else if (interaction.isStringSelectMenu() && interaction.customId.startsWith("servers:")) await handleServersSelect(interaction);
     else if (interaction.isModalSubmit()) await modals[interaction.customId.split(":")[0] ?? ""]?.(interaction);
   } catch (error) {
     failure = error;

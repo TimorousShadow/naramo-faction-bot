@@ -17,7 +17,8 @@ export interface GlobalBan {
   liftReason: string | null;
 }
 
-const directory = process.env.DATA_DIR ?? join(homedir(), ".naramo-faction");
+export const dataDirectory = process.env.DATA_DIR ?? join(homedir(), ".naramo-faction");
+const directory = dataDirectory;
 mkdirSync(directory, { recursive: true });
 const db = new DatabaseSync(join(directory, "naramo.db"));
 
