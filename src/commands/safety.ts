@@ -2,6 +2,9 @@
 import { randomUUID } from "node:crypto";
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
+  MediaGalleryBuilder,
+  MediaGalleryItemBuilder,
   ButtonBuilder,
   ButtonStyle,
   ContainerBuilder,
@@ -21,6 +24,7 @@ import { ensureAccess } from "../access.js";
 import { MAIN_GUILD_ID } from "../config.js";
 import { robloxForDiscord } from "../roblox.js";
 import { resolveRobloxUsername, runSafetyChecks, type CheckResult, type SafetyReport, type WatcherData, type WatcherGuild } from "../safety.js";
+import { summaryImages } from "../safety-cards.js";
 import { activeGlobalBan } from "../store.js";
 import { button, emoji, errorPanel, icon, linkButton, logo, privateV2, reasonModal, v2 } from "../ui.js";
 import type { LogoName } from "../icon-set.js";
@@ -30,8 +34,8 @@ const SERVERS_PER_PAGE = 2;
 const PAGE_BUDGET = 3300;
 
 interface Subject {
-  discord: { id: string; username: string; avatar: string; created: number } | null;
-  roblox: { id: string; name: string; avatar: string | null } | null;
+  discord: { id: string; username: string; displayName: string | null; avatar: string; created: number } | null;
+  roblox: { id: string; name: string; created: number | null; avatar: string | null } | null;
   note: string;
 }
 
@@ -42,6 +46,7 @@ interface View extends Subject {
   servers: { source: string; guild: WatcherGuild }[];
   details: { title: string; lines: string[] }[];
   serverPages: { from: number; to: number; blocks: string[] }[];
+  summary?: Promise<Buffer[]>;
 }
 
 const views = new Map<string, View>();
@@ -226,7 +231,7 @@ const serverPageCount = (view: View): number => view.serverPages.length;
 const pageCount = (view: View): number => 1 + view.details.length + serverPageCount(view);
 
 const sections = (view: View): { label: string; page: number }[] => {
-  const list = [{ label: "Overview", page: 0 }, ...view.details.map((detail, index) => ({ label: `Details: ${detail.title}`, page: 1 + index }))];
+  const list = [{ label: "Summary, every detail as images", page: -1 }, { label: "Overview", page: 0 }, ...view.details.map((detail, index) => ({ label: `Details: ${detail.title}`, page: 1 + index }))];
   const first = 1 + view.details.length;
   view.serverPages.forEach((page, index) => {
     list.push({ label: `Servers ${page.from}${page.to > page.from ? `-${page.to}` : ""}: ${view.servers[page.from - 1]!.source}`, page: first + index });
@@ -310,7 +315,7 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
 
   container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   container.addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(`-# Page ${current + 1}/${total}${view.servers.length ? ` · ${plural(view.servers.length, "flagged server")}` : ""} · Results come from third-party services, check the evidence before acting.`),
+    new TextDisplayBuilder().setContent(`-# Page ${current + 1}/${total}${view.servers.length ? ` · ${plural(view.servers.length, "flagged server")}` : ""}`),
   );
   if (total > 1) {
     const nav = (target: number, name: "arrow-left" | "chevron-left" | "chevron-right" | "arrow-right", disabled: boolean): ButtonBuilder =>
@@ -324,23 +329,35 @@ const render = (token: string, view: View, page: number): ContainerBuilder => {
       ),
     );
   }
-  const jump = sections(view);
-  if (jump.length > 1) {
-    container.addActionRowComponents(
-      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId(`safety:jump:${token}`)
-          .setPlaceholder("Jump to a section")
-          .addOptions(jump.map((entry) => ({ label: entry.label.slice(0, 100), value: String(entry.page), default: entry.page === current }))),
-      ),
-    );
-  }
-  const actions: ButtonBuilder[] = [
-    ...(view.discord && !view.globalBan && view.canGlobalBan ? [button(`safety:gban:${view.discord.id}`, "Global ban", ButtonStyle.Danger, "user-cross:red")] : []),
-    ...(view.roblox ? [linkButton("Roblox profile", `https://www.roblox.com/users/${view.roblox.id}/profile`)] : []),
-  ];
+  container.addActionRowComponents(jumpMenu(token, view, current));
+  const actions = actionButtons(view);
   if (actions.length) container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(actions));
   return container;
+};
+
+const jumpMenu = (token: string, view: View, current: number): ActionRowBuilder<StringSelectMenuBuilder> =>
+  new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId(`safety:jump:${token}`)
+      .setPlaceholder("Jump to a section")
+      .addOptions(sections(view).map((entry) => ({ label: entry.label.slice(0, 100), value: String(entry.page), default: entry.page === current }))),
+  );
+
+const actionButtons = (view: View): ButtonBuilder[] => [
+  ...(view.discord && !view.globalBan && view.canGlobalBan ? [button(`safety:gban:${view.discord.id}`, "Global ban", ButtonStyle.Danger, "user-cross:red")] : []),
+  ...(view.roblox ? [linkButton("Roblox profile", `https://www.roblox.com/users/${view.roblox.id}/profile`)] : []),
+];
+
+const summary = async (token: string, view: View): Promise<{ components: ContainerBuilder[]; files: AttachmentBuilder[] }> => {
+  view.summary ??= summaryImages({ discord: view.discord, roblox: view.roblox, note: view.note, globalBan: view.globalBan }, view.report);
+  const buffers = await view.summary;
+  const name = view.discord ? `@${escapeMarkdown(view.discord.username)}` : escapeMarkdown(view.roblox?.name ?? "");
+  const container = new ContainerBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${icon("list")} Summary · ${name}`));
+  buffers.forEach((_, index) => container.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://safety-${index + 1}.png`))));
+  container.addActionRowComponents(jumpMenu(token, view, -1));
+  const actions = actionButtons(view);
+  if (actions.length) container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(actions));
+  return { components: [container], files: buffers.map((buffer, index) => new AttachmentBuilder(buffer, { name: `safety-${index + 1}.png` })) };
 };
 
 const robloxHeadshot = async (id: string): Promise<string | null> => {
@@ -363,7 +380,7 @@ const report = async (interaction: ChatInputCommandInteraction | ButtonInteracti
       await interaction.editReply({ flags: v2, components: [errorPanel("Discord user not found", `No Discord account has the ID \`${discordId}\`.`)] });
       return;
     }
-    subject.discord = { id: user.id, username: user.username, avatar: user.displayAvatarURL({ size: 256, extension: "png" }), created: user.createdTimestamp };
+    subject.discord = { id: user.id, username: user.username, displayName: user.globalName, avatar: user.displayAvatarURL({ size: 256, extension: "png" }), created: user.createdTimestamp };
   }
   if (robloxInput) {
     const found = await resolveRobloxUsername(robloxInput).catch(() => null);
@@ -371,10 +388,10 @@ const report = async (interaction: ChatInputCommandInteraction | ButtonInteracti
       await interaction.editReply({ flags: v2, components: [errorPanel("Roblox account not found", `No Roblox account matches \`${robloxInput}\`.`)] });
       return;
     }
-    subject.roblox = { ...found, avatar: null };
+    subject.roblox = { ...found, created: null, avatar: null };
   } else if (discordId) {
     const linked = await robloxForDiscord(discordId);
-    if (linked.status === "linked") subject.roblox = { id: linked.account.id, name: linked.account.name, avatar: null };
+    if (linked.status === "linked") subject.roblox = { id: linked.account.id, name: linked.account.name, created: linked.account.created, avatar: null };
     else subject.note = linked.status === "unlinked" ? "No linked Roblox account found, so the Roblox checks were skipped." : "Bloxlink didn't answer, so the Roblox checks were skipped.";
   }
   if (subject.roblox && !subject.discord) subject.roblox.avatar = await robloxHeadshot(subject.roblox.id);
@@ -420,7 +437,7 @@ export const handleSafetyButton = async (interaction: ButtonInteraction): Promis
       return;
     }
     if (!(await ensureAccess(interaction, "safety"))) return;
-    await interaction.update({ components: [render(value!, view, Number(page))], allowedMentions: { parse: [] } });
+    await interaction.update({ components: [render(value!, view, Number(page))], attachments: [], allowedMentions: { parse: [] } });
     return;
   }
   if (action === "gban") {
@@ -440,5 +457,12 @@ export const handleSafetySelect = async (interaction: StringSelectMenuInteractio
     return;
   }
   if (!(await ensureAccess(interaction, "safety"))) return;
-  await interaction.update({ components: [render(token!, view, Number(interaction.values[0] ?? 0))], allowedMentions: { parse: [] } });
+  const choice = Number(interaction.values[0] ?? 0);
+  if (choice === -1) {
+    await interaction.deferUpdate();
+    const built = await summary(token!, view);
+    await interaction.editReply({ components: built.components, files: built.files, attachments: [], allowedMentions: { parse: [] } });
+    return;
+  }
+  await interaction.update({ components: [render(token!, view, choice)], attachments: [], allowedMentions: { parse: [] } });
 };

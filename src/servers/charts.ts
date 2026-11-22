@@ -4,7 +4,7 @@ import sharp from "sharp";
 import type { FleetPoint, ServerPoint, ServerRow } from "./history.js";
 import { centered, measure, papicon, text, type TextStyle, type Weight } from "./type.js";
 
-const T = {
+export const T = {
   canvas: "#0b0b0c",
   tile: "#161617",
   fg: "#fafafa",
@@ -13,9 +13,9 @@ const T = {
   warn: "#f5c451",
   bad: "#f87171",
 };
-const W = 1400;
+export const W = 1400;
 const P = 64;
-const GAP = 24;
+export const GAP = 24;
 const REGION_SHADES = [1, 0.72, 0.5, 0.34, 0.22, 0.14, 0.09];
 
 type Pt = [number, number];
@@ -36,20 +36,20 @@ const duration = (ms: number): string => {
   return days ? `${days}d ${hours}h` : hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
 };
 
-const fit = (content: string, style: Pick<TextStyle, "size" | "weight">, max: number): string => {
+export const fit = (content: string, style: Pick<TextStyle, "size" | "weight">, max: number): string => {
   if (measure(content, style) <= max) return content;
   let cut = content;
   while (cut.length > 1 && measure(`${cut}…`, style) > max) cut = cut.slice(0, -1).trimEnd();
   return `${cut}…`;
 };
 
-const rect = (x: number, y: number, w: number, h: number, r: number, fill: string, opacity = 1): string =>
+export const rect = (x: number, y: number, w: number, h: number, r: number, fill: string, opacity = 1): string =>
   `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0, w).toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(r, h / 2, Math.max(0, w) / 2).toFixed(1)}" fill="${fill}"${opacity < 1 ? ` fill-opacity="${opacity}"` : ""}/>`;
 
-const tile = (x: number, y: number, w: number, h: number, r = 28): string =>
+export const tile = (x: number, y: number, w: number, h: number, r = 28): string =>
   `${rect(x, y, w, h, r, T.tile)}<rect x="${x + 0.75}" y="${y + 0.75}" width="${w - 1.5}" height="${h - 1.5}" rx="${r - 0.75}" fill="none" stroke="${T.fg}" stroke-opacity="0.07" stroke-width="1.5"/>`;
 
-const pill = (x: number, middle: number, content: string, options: { size: number; weight?: Weight; height: number; pad: number; fill: string; color: string; opacity?: number; anchor?: "start" | "middle" | "end" }): { svg: string; width: number } => {
+export const pill = (x: number, middle: number, content: string, options: { size: number; weight?: Weight; height: number; pad: number; fill: string; color: string; opacity?: number; anchor?: "start" | "middle" | "end" }): { svg: string; width: number } => {
   const width = measure(content, { size: options.size, weight: options.weight ?? 600 }) + options.pad * 2;
   const left = options.anchor === "end" ? x - width : options.anchor === "middle" ? x - width / 2 : x;
   const svg =
@@ -87,10 +87,10 @@ const flagPill = (x: number, middle: number, code: string | null, height: number
   return { svg, width };
 };
 
-const heading = (x: number, middle: number, icon: string, label: string, size = 30): string =>
+export const heading = (x: number, middle: number, icon: string, label: string, size = 30): string =>
   papicon(icon, x, middle - size / 2, size, T.fg, 0.7) + centered(label, x + size + 12, middle, { size, weight: 500, fill: T.fg, opacity: 0.7 });
 
-const frame = (height: number, body: string, defs = ""): string =>
+export const frame = (height: number, body: string, defs = ""): string =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}"><defs><linearGradient id="badge" x1="0" x2="1" y1="0" y2="0.04"><stop offset="0.5" stop-color="#fafafa"/><stop offset="1" stop-color="#cfcfcf"/></linearGradient>${defs}</defs>${body}</svg>`;
 
 const card = (height: number): string => tile(0, 0, W, height, 40);

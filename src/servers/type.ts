@@ -25,8 +25,16 @@ export interface TextStyle {
 
 const options = (style: TextStyle) => ({ kerning: true, letterSpacing: style.tracking ?? TRACKING });
 
+export const drawable = (content: string, weight: Weight = 400): string =>
+  [...content.normalize("NFC")]
+    .map((char) => (char === "｜" ? "|" : char))
+    .filter((char) => char === " " || fonts[weight].charToGlyphIndex(char) > 0)
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
+
 export const measure = (content: string, style: Pick<TextStyle, "size" | "weight" | "tracking">): number =>
-  fonts[style.weight ?? 400].getAdvanceWidth(content, style.size, { kerning: true, letterSpacing: style.tracking ?? TRACKING } as opentype.RenderOptions);
+  fonts[style.weight ?? 400].getAdvanceWidth(drawable(content, style.weight), style.size, { kerning: true, letterSpacing: style.tracking ?? TRACKING } as opentype.RenderOptions);
 
 const capHeight = (weight: Weight, size: number): number => {
   const font = fonts[weight];
@@ -34,7 +42,8 @@ const capHeight = (weight: Weight, size: number): number => {
   return ((os2?.sCapHeight || font.unitsPerEm * 0.7) / font.unitsPerEm) * size;
 };
 
-export const text = (content: string, x: number, baseline: number, style: TextStyle): string => {
+export const text = (raw: string, x: number, baseline: number, style: TextStyle): string => {
+  const content = drawable(raw, style.weight);
   if (!content) return "";
   const width = measure(content, style);
   const left = style.anchor === "middle" ? x - width / 2 : style.anchor === "end" ? x - width : x;

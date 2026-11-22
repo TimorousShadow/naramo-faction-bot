@@ -52,7 +52,6 @@ export const runHelp = async (interaction: ChatInputCommandInteraction): Promise
         title: "Help",
         body: [`Commands you can use in **${interaction.guild?.name ?? "this server"}**.`, "", ...commands],
         details: ["**Status icons**", ...icons, "", "**Safety providers**", ...providers],
-        footer: "Results from safety providers come from third-party services. Check the evidence before acting.",
       }),
     ],
   });
