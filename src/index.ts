@@ -8,6 +8,7 @@ import { runHelp } from "./commands/help.js";
 import { handleGlobalbanButton, handleGlobalbanModal, runGlobalban } from "./commands/globalban.js";
 import { handleGlobalunbanButton, handleGlobalunbanModal, runGlobalunban } from "./commands/globalunban.js";
 import { runLookup } from "./commands/lookup.js";
+import { runNewaccounts } from "./commands/newaccounts.js";
 import { handleSafetyButton, handleSafetySelect, runSafety } from "./commands/safety.js";
 import { handleServersButton, handleServersSelect, runServers } from "./commands/servers.js";
 import { runStatus } from "./commands/status.js";
@@ -26,6 +27,7 @@ const commands: Record<string, (interaction: ChatInputCommandInteraction) => Pro
   globalunban: runGlobalunban,
   gbaninfo: runGbaninfo,
   lookup: runLookup,
+  newaccounts: runNewaccounts,
   status: runStatus,
   safety: runSafety,
   servers: runServers,

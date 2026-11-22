@@ -36,6 +36,12 @@ db.exec(`
     lift_reason text
   );
   create index if not exists global_bans_user on global_bans (user_id, issued_at);
+  create table if not exists account_age_allow (
+    user_id text primary key,
+    added_by text not null,
+    added_at integer not null,
+    reason text not null
+  );
 `);
 
 const columns = `id, user_id as userId, username, reason, issued_by as issuedBy, issued_at as issuedAt, results,
@@ -62,3 +68,26 @@ export const globalBanCounts = (): { total: number; active: number } => {
   const row = countStatement.get() as { total: number; active: number | null };
   return { total: Number(row.total), active: Number(row.active ?? 0) };
 };
+
+export interface AllowedAccount {
+  userId: string;
+  addedBy: string;
+  addedAt: number;
+  reason: string;
+}
+
+const allowColumns = "user_id as userId, added_by as addedBy, added_at as addedAt, reason";
+const allowedStatement = db.prepare(`select ${allowColumns} from account_age_allow where user_id = ?`);
+const allowListStatement = db.prepare(`select ${allowColumns} from account_age_allow order by added_at desc`);
+const allowStatement = db.prepare("insert or replace into account_age_allow (user_id, added_by, added_at, reason) values (?, ?, ?, ?)");
+const disallowStatement = db.prepare("delete from account_age_allow where user_id = ?");
+
+export const allowedAccount = (userId: string): AllowedAccount | undefined => allowedStatement.get(userId) as AllowedAccount | undefined;
+
+export const allowedAccounts = (): AllowedAccount[] => allowListStatement.all() as unknown as AllowedAccount[];
+
+export const allowAccount = (userId: string, addedBy: string, reason: string): void => {
+  allowStatement.run(userId, addedBy, Date.now(), reason);
+};
+
+export const disallowAccount = (userId: string): boolean => Number(disallowStatement.run(userId).changes) > 0;
