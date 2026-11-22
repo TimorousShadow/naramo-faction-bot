@@ -63,7 +63,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const started = Date.now();
   let failure: unknown;
   try {
-    const allowedHere = (scope: string) => (scope === "safety" || scope === "help") && extraCommandsFor(interaction.guildId ?? "").includes("safety");
+    const allowedHere = (scope: string) => scope === "servers" || ((scope === "safety" || scope === "help") && extraCommandsFor(interaction.guildId ?? "").includes("safety"));
     const scope = interaction.isChatInputCommand() ? interaction.commandName : "customId" in interaction ? interaction.customId.split(":")[0] ?? "" : "";
     const action = "customId" in interaction ? interaction.customId.split(":")[1] ?? "" : "";
     if (interaction.guildId && PROTECTED_GUILD_IDS.has(interaction.guildId) && !(allowedHere(scope) && action !== "gban")) {

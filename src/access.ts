@@ -17,6 +17,7 @@ const memberRoleIds = (interaction: Gated): string[] => {
 };
 
 export const canUse = async (interaction: Gated, command: string): Promise<boolean> => {
+  if (command === "servers") return true;
   if (command === "banlist") return Boolean(interaction.memberPermissions?.has(PermissionFlagsBits.Administrator));
   if (interaction.guildId === MAIN_GUILD_ID && (await hasAccess(interaction.client, interaction.user.id))) return true;
   const localRoles = commandAccessRoles(interaction.guildId, command);

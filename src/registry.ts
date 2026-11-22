@@ -11,12 +11,12 @@ import { serversCommand } from "./commands/servers.js";
 import { statusCommand } from "./commands/status.js";
 import { MAIN_GUILD_ID, PROTECTED_GUILD_IDS, SERVERS, extraCommandsFor } from "./config.js";
 
-const mainCommands = [banlistCommand, globalbanCommand, globalunbanCommand, gbaninfoCommand, lookupCommand, safetyCommand, serversCommand, statusCommand];
+const mainCommands = [banlistCommand, globalbanCommand, globalunbanCommand, gbaninfoCommand, lookupCommand, safetyCommand, statusCommand];
 const serverCommands = [banlistCommand];
 
 const withHelp = <T,>(commands: T[]): (T | typeof helpCommand)[] => (commands.length ? [...commands, helpCommand] : []);
 
-export const commandsFor = (guildId: string) => withHelp(baseCommandsFor(guildId));
+export const commandsFor = (guildId: string) => [...withHelp(baseCommandsFor(guildId)), serversCommand];
 
 const baseCommandsFor = (guildId: string) => {
   const extra = extraCommandsFor(guildId);
