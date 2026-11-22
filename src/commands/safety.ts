@@ -231,7 +231,7 @@ const serverPageCount = (view: View): number => view.serverPages.length;
 const pageCount = (view: View): number => 1 + view.details.length + serverPageCount(view);
 
 const sections = (view: View): { label: string; page: number }[] => {
-  const list = [{ label: "Summary, every detail as images", page: -1 }, { label: "Overview", page: 0 }, ...view.details.map((detail, index) => ({ label: `Details: ${detail.title}`, page: 1 + index }))];
+  const list = [{ label: "Summary", page: -1 }, { label: "Overview", page: 0 }, ...view.details.map((detail, index) => ({ label: `Details: ${detail.title}`, page: 1 + index }))];
   const first = 1 + view.details.length;
   view.serverPages.forEach((page, index) => {
     list.push({ label: `Servers ${page.from}${page.to > page.from ? `-${page.to}` : ""}: ${view.servers[page.from - 1]!.source}`, page: first + index });
