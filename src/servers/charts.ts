@@ -16,7 +16,6 @@ const W = 1400;
 const P = 64;
 const GAP = 24;
 const REGION_SHADES = [1, 0.72, 0.5, 0.34, 0.22, 0.14, 0.09];
-const PATTERN = ["star", "globe", "gears", "clock", "pie", "grid", "crown", "calendar", "user", "sparkles"];
 
 type Pt = [number, number];
 
@@ -46,8 +45,8 @@ const fit = (content: string, style: Pick<TextStyle, "size" | "weight">, max: nu
 const rect = (x: number, y: number, w: number, h: number, r: number, fill: string, opacity = 1): string =>
   `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(0, w).toFixed(1)}" height="${h.toFixed(1)}" rx="${Math.min(r, h / 2, Math.max(0, w) / 2).toFixed(1)}" fill="${fill}"${opacity < 1 ? ` fill-opacity="${opacity}"` : ""}/>`;
 
-const tile = (x: number, y: number, w: number, h: number): string =>
-  `${rect(x, y, w, h, 28, T.tile)}<rect x="${x + 0.5}" y="${y + 0.5}" width="${w - 1}" height="${h - 1}" rx="27.5" fill="none" stroke="${T.fg}" stroke-opacity="0.05"/>`;
+const tile = (x: number, y: number, w: number, h: number, r = 28): string =>
+  `${rect(x, y, w, h, r, T.tile)}<rect x="${x + 0.75}" y="${y + 0.75}" width="${w - 1.5}" height="${h - 1.5}" rx="${r - 0.75}" fill="none" stroke="${T.fg}" stroke-opacity="0.07" stroke-width="1.5"/>`;
 
 const pill = (x: number, middle: number, content: string, options: { size: number; weight?: Weight; height: number; pad: number; fill: string; color: string; opacity?: number; anchor?: "start" | "middle" | "end" }): { svg: string; width: number } => {
   const width = measure(content, { size: options.size, weight: options.weight ?? 600 }) + options.pad * 2;
@@ -61,24 +60,10 @@ const pill = (x: number, middle: number, content: string, options: { size: numbe
 const heading = (x: number, middle: number, icon: string, label: string, size = 30): string =>
   papicon(icon, x, middle - size / 2, size, T.fg, 0.7) + centered(label, x + size + 12, middle, { size, weight: 500, fill: T.fg, opacity: 0.7 });
 
-const frame = (height: number, body: string, defs = ""): string => {
-  let pattern = "";
-  let row = 0;
-  for (let y = 40; y < height; y += 118, row += 1) {
-    for (let x = row % 2 ? 100 : 40; x < W; x += 120) pattern += papicon(PATTERN[(row * 7 + Math.round(x / 120)) % PATTERN.length]!, x, y, 30, T.fg);
-  }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}">
-<defs>
-<radialGradient id="vignette" cx="50%" cy="38%" r="75%"><stop offset="0.45" stop-color="#000"/><stop offset="1" stop-color="#fff"/></radialGradient>
-<mask id="patternMask"><rect width="${W}" height="${height}" fill="url(#vignette)"/></mask>
-<clipPath id="card"><rect width="${W}" height="${height}" rx="40"/></clipPath>
-<linearGradient id="badge" x1="0" x2="1" y1="0" y2="0.04"><stop offset="0.5" stop-color="#fafafa"/><stop offset="1" stop-color="#cfcfcf"/></linearGradient>
-${defs}
-</defs>
-<g clip-path="url(#card)"><rect width="${W}" height="${height}" fill="${T.canvas}"/><g mask="url(#patternMask)" opacity="0.045">${pattern}</g></g>
-<rect x="0.5" y="0.5" width="${W - 1}" height="${height - 1}" rx="39.5" fill="none" stroke="${T.fg}" stroke-opacity="0.07"/>
-${body}</svg>`;
-};
+const frame = (height: number, body: string, defs = ""): string =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${height}" viewBox="0 0 ${W} ${height}"><defs><linearGradient id="badge" x1="0" x2="1" y1="0" y2="0.04"><stop offset="0.5" stop-color="#fafafa"/><stop offset="1" stop-color="#cfcfcf"/></linearGradient>${defs}</defs>${body}</svg>`;
+
+const card = (height: number): string => tile(0, 0, W, height, 40);
 
 const smooth = (points: readonly Pt[]): string => {
   const n = points.length;
@@ -182,7 +167,7 @@ export const playersChart = (input: PlayersChart): string => {
   const x = (at: number) => left + ((at - input.from) / (input.to - input.from || 1)) * (right - left);
   const y = (value: number) => bottom - (Math.max(0, value) / max) * (bottom - top);
   const gap = input.bucket * 3.5;
-  let body = heading(P, 100, "user", "Players");
+  let body = card(height) + heading(P, 100, "user", "Players");
 
   const legend: { label: string; dashed: boolean }[] = [{ label: input.rangeLabel, dashed: false }, ...(input.ghostLabel && input.ghost.length ? [{ label: input.ghostLabel, dashed: true }] : [])];
   let cursor = right;
@@ -250,13 +235,12 @@ const statTile = (x: number, y: number, w: number, h: number, icon: string, labe
 
 export const fleetBoard = (servers: readonly ServerRow[]): string => {
   const columns = 2;
-  const tileW = (W - P * 2 - GAP * (columns - 1)) / columns;
+  const tileW = (W - GAP * (columns - 1)) / columns;
   const tileH = 176;
   const shown = servers.length > 12 ? servers.slice(0, 11) : servers.slice(0, 12);
   const rows = Math.ceil((shown.length + (servers.length > shown.length ? 1 : 0)) / columns) || 1;
-  const gridTop = 456;
-  const regionsTop = gridTop + rows * (tileH + GAP) + 40;
-  const height = regionsTop + 230;
+  const gridTop = 248 + GAP;
+  const regionsTop = gridTop + rows * (tileH + GAP);
   const players = servers.reduce((sum, server) => sum + server.playing, 0);
   const capacity = servers.reduce((sum, server) => sum + server.maxPlayers, 0);
   const weighted = (key: "fps" | "ping") => (players ? servers.reduce((sum, server) => sum + server[key] * server.playing, 0) / players : 0);
@@ -264,23 +248,22 @@ export const fleetBoard = (servers: readonly ServerRow[]): string => {
   const pings = servers.map((server) => server.ping);
   const slow = servers.filter((server) => server.fps < 50).length;
 
-  let body = heading(P, 100, "grid", "Servers");
-  body += centered(`${servers.length} public · ${capacity.toLocaleString("en-US")} slots`, W - P, 100, { size: 30, weight: 500, fill: T.fg, opacity: 0.5, anchor: "end" });
+  let body = "";
 
   const ratio = capacity ? players / capacity : 0;
-  const statW = (W - P * 2 - GAP * 2) / 3;
-  body += statTile(P, 160, statW, 248, "pie", "Capacity", `${Math.round(ratio * 100)}`, "%", `${players.toLocaleString("en-US")} of ${capacity.toLocaleString("en-US")}`);
-  const ringX = P + statW - 100;
-  const ringY = 160 + 124;
+  const statW = (W - GAP * 2) / 3;
+  body += statTile(0, 0, statW, 248, "pie", "Capacity", `${Math.round(ratio * 100)}`, "%", `${players.toLocaleString("en-US")} of ${capacity.toLocaleString("en-US")}`);
+  const ringX = statW - 100;
+  const ringY = 124;
   const r = 56;
   const circumference = 2 * Math.PI * r;
   body += `<circle cx="${ringX}" cy="${ringY}" r="${r}" fill="none" stroke="${T.fg}" stroke-opacity="0.08" stroke-width="16"/>`;
   if (ratio > 0) body += `<circle cx="${ringX}" cy="${ringY}" r="${r}" fill="none" stroke="${T.fg}" stroke-width="16" stroke-linecap="round" stroke-dasharray="${(circumference * Math.min(1, ratio)).toFixed(1)} ${circumference.toFixed(1)}" transform="rotate(-90 ${ringX} ${ringY})"/>`;
-  body += statTile(P + statW + GAP, 160, statW, 248, "gears", "Server FPS", fps.toFixed(1), "", slow ? `${slow} server${slow === 1 ? "" : "s"} under 50` : "every server above 50", fpsColor(fps));
-  body += statTile(P + (statW + GAP) * 2, 160, statW, 248, "clock", "Ping", `${Math.round(weighted("ping"))}`, "ms", pings.length ? `best ${Math.min(...pings)} ms · worst ${Math.max(...pings)} ms` : "no servers");
+  body += statTile(statW + GAP, 0, statW, 248, "gears", "Server FPS", fps.toFixed(1), "", slow ? `${slow} server${slow === 1 ? "" : "s"} under 50` : "every server above 50", fpsColor(fps));
+  body += statTile((statW + GAP) * 2, 0, statW, 248, "clock", "Ping", `${Math.round(weighted("ping"))}`, "ms", pings.length ? `best ${Math.min(...pings)} ms · worst ${Math.max(...pings)} ms` : "no servers");
 
   shown.forEach((server, index) => {
-    const x = P + (index % columns) * (tileW + GAP);
+    const x = (index % columns) * (tileW + GAP);
     const y = gridTop + Math.floor(index / columns) * (tileH + GAP);
     const middle = y + 54;
     body += tile(x, y, tileW, tileH);
@@ -302,7 +285,7 @@ export const fleetBoard = (servers: readonly ServerRow[]): string => {
   });
   if (servers.length > shown.length) {
     const index = shown.length;
-    const x = P + (index % columns) * (tileW + GAP);
+    const x = (index % columns) * (tileW + GAP);
     const y = gridTop + Math.floor(index / columns) * (tileH + GAP);
     body += tile(x, y, tileW, tileH) + centered(`+${servers.length - shown.length} more in the menu below`, x + tileW / 2, y + tileH / 2, { size: 32, weight: 600, fill: T.fg, opacity: 0.6, anchor: "middle" });
   }
@@ -314,29 +297,34 @@ export const fleetBoard = (servers: readonly ServerRow[]): string => {
   const top = sorted.slice(0, 6);
   const other = sorted.slice(6).reduce((sum, [, count]) => sum + count, 0);
   if (other) top.push(["Other", other]);
-  body += heading(P, regionsTop, "globe", "Regions");
-  let bx = P;
-  const barWidth = W - P * 2;
-  top.forEach(([, count], index) => {
-    const w = players ? (count / players) * barWidth : barWidth / top.length;
-    body += rect(bx, regionsTop + 44, Math.max(4, w - 6), 20, 10, T.fg, REGION_SHADES[index] ?? 0.08);
-    bx += w;
-  });
-  let lx = P;
-  let ly = regionsTop + 128;
+  const inner = 40;
+  const legend: { name: string; count: number; shade: number; x: number; y: number }[] = [];
+  let lx = inner;
+  let ly = regionsTop + 186;
   for (const [index, [name, count]] of top.entries()) {
-    const label = `${name} ${count}`;
-    const width = 20 + 12 + measure(label, { size: 30, weight: 500 }) + 40;
-    if (lx + width > W - P) {
-      lx = P;
+    const width = 20 + 12 + measure(`${name} ${count}`, { size: 30, weight: 500 }) + 40;
+    if (lx + width > W - inner) {
+      lx = inner;
       ly += 54;
     }
-    body += `<circle cx="${lx + 10}" cy="${ly}" r="10" fill="${T.fg}" fill-opacity="${REGION_SHADES[index] ?? 0.08}"/>`;
-    body += centered(name, lx + 32, ly, { size: 30, weight: 500, fill: T.fg, opacity: 0.8 });
-    body += centered(String(count), lx + 32 + measure(`${name} `, { size: 30, weight: 500 }), ly, { size: 30, weight: 500, fill: T.fg, opacity: 0.4 });
+    legend.push({ name, count, shade: REGION_SHADES[index] ?? 0.08, x: lx, y: ly });
     lx += width;
   }
-  return frame(Math.max(height, ly + 70), body);
+  const height = ly + 56;
+  body += tile(0, regionsTop, W, height - regionsTop) + heading(inner, regionsTop + 62, "globe", "Regions");
+  let bx = inner;
+  const barWidth = W - inner * 2;
+  top.forEach(([, count], index) => {
+    const w = players ? (count / players) * barWidth : barWidth / top.length;
+    body += rect(bx, regionsTop + 108, Math.max(4, w - 6), 20, 10, T.fg, REGION_SHADES[index] ?? 0.08);
+    bx += w;
+  });
+  for (const item of legend) {
+    body += `<circle cx="${item.x + 10}" cy="${item.y}" r="10" fill="${T.fg}" fill-opacity="${item.shade}"/>`;
+    body += centered(item.name, item.x + 32, item.y, { size: 30, weight: 500, fill: T.fg, opacity: 0.8 });
+    body += centered(String(item.count), item.x + 32 + measure(`${item.name} `, { size: 30, weight: 500 }), item.y, { size: 30, weight: 500, fill: T.fg, opacity: 0.4 });
+  }
+  return frame(height, body);
 };
 
 export interface ServerContext {
@@ -346,8 +334,8 @@ export interface ServerContext {
 }
 
 export const serverChart = (server: ServerRow, series: readonly ServerPoint[], context: ServerContext = { rank: 0, total: 0, latestVersion: null }): string => {
-  const height = 860;
-  let body = heading(P, 100, "map-pin", `Server #${server.jobId.split("-").slice(1, 3).join("-")}`);
+  const headerH = 368;
+  let body = tile(0, 0, W, headerH, 40) + heading(P, 100, "map-pin", `Server #${server.jobId.split("-").slice(1, 3).join("-")}`);
   const uptime = `Up ${duration(Date.now() - server.firstSeen)}`;
   body += pill(W - P, 100, uptime, { size: 26, height: 56, pad: 24, fill: "url(#badge)", color: T.ink, anchor: "end" }).svg;
   const title = fit(server.city ?? server.country ?? "Unknown location", { size: 104, weight: 700 }, W - P * 2 - 200);
@@ -363,9 +351,10 @@ export const serverChart = (server: ServerRow, series: readonly ServerPoint[], c
   ].filter(Boolean);
   body += text(facts.join(" · "), P, 312, { size: 30, fill: T.fg, opacity: 0.55 });
 
-  const tileW = (W - P * 2 - GAP * 2) / 3;
-  const tileTop = 370;
+  const tileW = (W - GAP * 2) / 3;
+  const tileTop = headerH + GAP;
   const tileH = 426;
+  const height = tileTop + tileH;
   const from = series[0]?.at ?? Date.now() - HOUR;
   const to = Math.max(series.at(-1)?.at ?? Date.now(), from + 600_000);
   const latest = series.at(-1);
@@ -376,7 +365,7 @@ export const serverChart = (server: ServerRow, series: readonly ServerPoint[], c
   ];
   let defs = "";
   metrics.forEach((metric, index) => {
-    const x = P + index * (tileW + GAP);
+    const x = index * (tileW + GAP);
     body += tile(x, tileTop, tileW, tileH) + heading(x + 32, tileTop + 52, metric.icon, metric.label, 30);
     const style = { size: 76, weight: 700 as Weight, fill: metric.color };
     body += text(metric.value, x + 30, tileTop + 160, style);
@@ -395,8 +384,6 @@ export const serverChart = (server: ServerRow, series: readonly ServerPoint[], c
     if (latest) body += endDot([gx(latest.at), gy(metric.pick(latest))], metric.color);
     if (series.length < 2) body += centered("Not enough samples yet", x + tileW / 2, (gy0 + gy1) / 2, { size: 24, weight: 500, fill: T.fg, opacity: 0.4, anchor: "middle" });
   });
-  const stamp = (at: number) => `${to - from > 20 * HOUR ? `${DAYS[new Date(at).getUTCDay()]} ` : ""}${hhmm(at)}`;
-  body += text(series.length ? `${stamp(from)} to ${stamp(to)} UTC` : "", W - P, tileTop + tileH + 48, { size: 26, weight: 500, fill: T.fg, opacity: 0.4, anchor: "end" });
   return frame(height, body, defs);
 };
 
@@ -422,7 +409,7 @@ export const heatmap = (hours: readonly { at: number; players: number }[]): { sv
   const rowH = cell + 6;
   const top = 170;
   const height = top + rowH * 7 + 96;
-  let body = heading(P, 100, "calendar", "Average players by hour");
+  let body = card(height) + heading(P, 100, "calendar", "Average players by hour");
   const steps = 6;
   const scaleRight = W - P;
   const swatch = 30;
