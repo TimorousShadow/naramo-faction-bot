@@ -5,6 +5,7 @@ import {
   type Client,
   type CommandInteractionOption,
   type Guild,
+  type GuildMember,
   type Interaction,
 } from "discord.js";
 import { WATCHER_CHANNEL_ID } from "./config.js";
@@ -84,6 +85,25 @@ export const watchGuild = (client: Client, guild: Guild, joined: boolean): void 
       icon: joined ? "login:green" : "logout:red",
       title: joined ? "Bot added to a server" : "Bot removed from a server",
       body: [`**${clip(guild.name, 80)}** \`${guild.id}\``, `-# ${guild.memberCount ? `${guild.memberCount.toLocaleString("en-US")} members · ` : ""}<t:${Math.floor(Date.now() / 1000)}:F>`],
+    }),
+  );
+};
+
+export const watchAgeKick = (member: GuildMember, days: number, notified: boolean, error?: unknown): void => {
+  const failed = error !== undefined;
+  send(
+    member.client,
+    panel({
+      icon: failed ? "alert-triangle:red" : "user-cross:red",
+      title: failed ? "New account not kicked" : "New account kicked",
+      body: [
+        `<@${member.id}> \`${member.user.username}\` \`${member.id}\``,
+        `-# **${clip(member.guild.name, 60)}** · account created <t:${Math.floor(member.user.createdTimestamp / 1000)}:R>, under ${days} days · <t:${Math.floor(Date.now() / 1000)}:T>`,
+      ],
+      details: [
+        notified ? `${icon("mail")} Told by DM` : `${icon("mail")} DMs closed, not told`,
+        ...(failed ? [`${icon("alert-triangle:red")} **Failed** ${clip(error instanceof Error ? error.message : String(error), 200)}`] : []),
+      ],
     }),
   );
 };

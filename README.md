@@ -24,6 +24,8 @@ The commands below only exist in Naramo Faction Management and need the Access r
 
 Global bans and unbans are posted to the global ban log channel. Every interaction with the bot in any server (commands with their options, buttons, forms, the result and how long it took) and every server the bot joins or leaves is logged to the watcher channel in Naramo Faction Management, which only the NOSHA role can see. Command replies are visible in the channel.
 
+In the servers listed under `accountAgeKick` in `config.json` (ANRO, 30 days), the bot kicks anyone who joins with a Discord account younger than that, after a DM saying the account was flagged as a possible alternative account, and logs it to the watcher channel. Bots are left alone. This needs the Server Members intent, which is on in the developer portal.
+
 ## Running it
 
 Needs Node 24. Global bans are stored in SQLite under `DATA_DIR` (default `~/.naramo-faction`). Set `BLOXLINK_API_KEY` and `BLOXLINK_GUILD_ID` to find Roblox accounts; Roblox Watcher is used when Bloxlink has no link. Each safety checker runs when its key is set in `.env` (see `.env.example`).
@@ -39,7 +41,7 @@ npm start
 
 ## Configuration
 
-`config.json` holds the main server, the watcher channel, per-server command access (a list of roles, or a minimum role that also covers every role above it, for example `/safety` for Team Lead and above in the appeals server), the protected servers (where the bot registers no commands and global bans never apply, such as the appeals server), the role and log channel for global bans, and the list of servers a global ban applies to.
+`config.json` holds the main server, the watcher channel, per-server command access (a list of roles, or a minimum role that also covers every role above it, for example `/safety` for Team Lead and above in the appeals server), the protected servers (where the bot registers no commands and global bans never apply, such as the appeals server), the role and log channel for global bans, and the list of servers a global ban applies to, and the minimum account age in days for each server that kicks new accounts.
 
 ## Deployment
 

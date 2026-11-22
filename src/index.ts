@@ -1,6 +1,7 @@
 // TimorousShadow
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits, MessageFlags, REST, type ButtonInteraction, type ChatInputCommandInteraction, type ModalSubmitInteraction } from "discord.js";
+import { enforceAccountAge } from "./age-gate.js";
 import { handleBanlistButton, runBanlist } from "./commands/banlist.js";
 import { runGbaninfo } from "./commands/gbaninfo.js";
 import { runHelp } from "./commands/help.js";
@@ -44,7 +45,7 @@ const modals: Record<string, (interaction: ModalSubmitInteraction) => Promise<vo
   "globalunban-reason": handleGlobalunbanModal,
 };
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
 client.once(Events.ClientReady, (ready) => {
   console.log(`Logged in as ${ready.user.tag}`);
@@ -58,6 +59,7 @@ client.on(Events.GuildCreate, (guild) => {
     .catch((error: unknown) => console.error(`Command registration failed in ${guild.id}`, error));
 });
 client.on(Events.GuildDelete, (guild) => watchGuild(client, guild, false));
+client.on(Events.GuildMemberAdd, (member) => void enforceAccountAge(member));
 
 client.on(Events.InteractionCreate, async (interaction) => {
   const started = Date.now();

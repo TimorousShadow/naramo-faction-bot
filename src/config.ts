@@ -14,6 +14,8 @@ export const GLOBAL_BAN_LOG_CHANNEL_ID: string = config.globalBan.logChannelId;
 export const GAME_PLACE_ID: string = config.game.placeId;
 export const GAME_NAME: string = config.game.name;
 export const PROTECTED_GUILD_IDS: ReadonlySet<string> = new Set(config.protectedGuilds.map((guild) => guild.id));
+const accountAgeKick: Record<string, number> = config.accountAgeKick;
+export const minAccountAgeDays = (guildId: string): number | undefined => accountAgeKick[guildId];
 export const SERVERS: readonly ServerEntry[] = config.servers.filter((server) => !PROTECTED_GUILD_IDS.has(server.id));
 
 export const commandAccessMinRoles = (guildId: string | null, command: string): readonly string[] =>
