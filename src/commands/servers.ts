@@ -143,40 +143,30 @@ const overview = async (range: Range): Promise<View> => {
   const change = before && after !== null ? ((after - before) / before) * 100 : null;
 
   const [chart, board] = await Promise.all([
-    png(playersChart({ points, ghost, ghostShift: config.shift, from, to: now, bucket: config.bucket, rangeLabel: config.label, ghostLabel: config.ghost, current: players, change })),
+    png(playersChart({ points, ghost, ghostShift: config.shift, from, to: now, bucket: config.bucket, rangeLabel: config.label, ghostLabel: config.ghost, current: players, capacity, change })),
     png(fleetBoard(servers)),
   ]);
 
   const dayStart = Math.floor(now / DAY) * DAY;
   const peakToday = fleetPeak(dayStart);
-  const peakRange = fleetPeak(from);
   const allTime = fleetPeak(0);
-  const players24 = points.length ? Math.min(...fleetSeries(now - DAY, now, 5 * 60_000).map((point) => point.players)) : null;
-  const weighted = (key: "fps" | "ping") => (players ? servers.reduce((sum, server) => sum + server[key] * server.playing, 0) / players : 0);
-  const struggling = servers.filter((server) => server.fps < 35).length;
-  const full = servers.filter((server) => server.playing >= server.maxPlayers - 1).length;
   const version = latestVersion(servers);
   const outdated = version ? servers.filter((server) => server.placeVersion !== null && server.placeVersion < version) : [];
-  const regions = new Map<string, number>();
-  for (const server of servers) regions.set(server.country ?? "Unknown", (regions.get(server.country ?? "Unknown") ?? 0) + 1);
   const game = gameLatest();
   const gameDayAgo = game ? gameAtOrBefore(game.at - DAY + 15 * 60_000) : undefined;
   const since = trackingSince();
 
+  const summary = `**${players.toLocaleString("en-US")}** players across **${plural(servers.length, "server")}** · ${capacity ? Math.round((players / capacity) * 100) : 0}% full`;
   const details = [
-    line("user", "Players", [`**${players.toLocaleString("en-US")}** now`, peakToday ? `peak today **${peakToday.players.toLocaleString("en-US")}** at ${time(peakToday.at, "t")}` : "", players24 !== null && Number.isFinite(players24) ? `24h low ${Math.round(players24)}` : ""].filter(Boolean).join(" · ")),
-    line("grid", "Servers", [`**${servers.length}** public`, `${capacity.toLocaleString("en-US")} slots`, full ? `${full} full` : "", `${capacity ? Math.round((players / capacity) * 100) : 0}% filled`].filter(Boolean).join(" · ")),
-    line("gears", "Performance", [`${weighted("fps").toFixed(1)} FPS`, `${Math.round(weighted("ping"))} ms ping`, struggling ? `**${plural(struggling, "server")}** under 35 FPS` : "every server above 35 FPS"].join(" · ")),
-    line("globe", "Regions", [...regions.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => `${name} ${count}`).join(" · ") || "none"),
-    ...(version ? [line("pen", "Version", outdated.length ? `**${plural(outdated.length, "server")}** still on an older version, latest is v${version}` : `every server on v${version}`)] : []),
     ...(game
       ? [line("star", "Game", [`${compact(game.visits)} visits${gameDayAgo && game.visits > gameDayAgo.visits ? ` (+${compact(game.visits - gameDayAgo.visits)} in 24h)` : ""}`, `${game.favorites.toLocaleString("en-US")} favourites`, game.upVotes + game.downVotes ? `${((game.upVotes / (game.upVotes + game.downVotes)) * 100).toFixed(1)}% likes` : ""].filter(Boolean).join(" · "))]
       : []),
-    ...(peakRange && allTime ? [line("crown", "Records", `peak in the ${config.label.toLowerCase()} **${peakRange.players.toLocaleString("en-US")}** · highest recorded **${allTime.players.toLocaleString("en-US")}** on ${time(allTime.at, "D")}`)] : []),
+    ...(version ? [line("pen", "Version", outdated.length ? `**${plural(outdated.length, "server")}** still on an older version, latest is v${version}` : `every server on v${version}`)] : []),
+    ...(peakToday && allTime ? [line("crown", "Records", `today **${peakToday.players.toLocaleString("en-US")}** at ${time(peakToday.at, "t")} · highest recorded **${allTime.players.toLocaleString("en-US")}** on ${time(allTime.at, "D")}`)] : []),
   ];
 
   const container = new ContainerBuilder()
-    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${icon("grid")} ${GAME_NAME}\nLive public servers, read from Roblox once a minute.`))
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${icon("grid")} ${GAME_NAME}\n${summary}`))
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details.join("\n")))
     .addMediaGalleryComponents(media("players.png", `${GAME_NAME} players, ${config.label.toLowerCase()}`))
@@ -196,7 +186,7 @@ const serverView = async (jobId: string, range: Range): Promise<View> => {
   const rank = servers.findIndex((entry) => entry.jobId === jobId) + 1;
   const version = latestVersion(servers);
   const series = serverSeries(jobId);
-  const chart = await png(serverChart(server, series));
+  const chart = await png(serverChart(server, series, { rank, total: servers.length, latestVersion: version }));
   const players = servers.reduce((sum, entry) => sum + entry.playing, 0);
   const fleetFps = players ? servers.reduce((sum, entry) => sum + entry.fps * entry.playing, 0) / players : 0;
   const fleetPing = players ? servers.reduce((sum, entry) => sum + entry.ping * entry.playing, 0) / players : 0;
@@ -204,11 +194,8 @@ const serverView = async (jobId: string, range: Range): Promise<View> => {
   const behind = version && server.placeVersion ? version - server.placeVersion : 0;
 
   const details = [
-    line("user", "Players", `**${server.playing} / ${server.maxPlayers}** · ${fill(server)}% full${rank ? ` · ${rank} of ${servers.length} by players` : ""}`),
-    line("gears", "Performance", `**${server.fps.toFixed(1)} FPS** · **${server.ping} ms** · network average ${fleetFps.toFixed(1)} FPS, ${Math.round(fleetPing)} ms`),
-    line("clock", "Uptime", closed ? `closed ${time(server.lastSeen, "R")}` : `up ${duration(Date.now() - server.firstSeen)}, since ${time(server.firstSeen, "f")}`),
-    line("globe", "Location", `${[server.city, server.region, server.country].filter(Boolean).join(", ") || "not reported"}${server.datacenterId ? ` · datacenter \`${server.datacenterId}\`` : ""}`),
-    ...(server.placeVersion ? [line("pen", "Version", behind > 0 ? `v${server.placeVersion}, **${plural(behind, "version")} behind** v${version}` : `v${server.placeVersion}, the latest`)] : []),
+    line("gears", "Network average", `${fleetFps.toFixed(1)} FPS, ${Math.round(fleetPing)} ms${behind > 0 ? ` · this server is **${plural(behind, "version")} behind**` : ""}`),
+    line("clock", closed ? "Closed" : "Online since", closed ? time(server.lastSeen, "R") : time(server.firstSeen, "f")),
     line("list", "Job ID", `\`${server.jobId}\``),
   ];
 
