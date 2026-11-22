@@ -370,11 +370,27 @@ const watcherCards = (check: CheckResult, data: WatcherData, logo: string | null
   const columns = 2;
   const width = (W - GAP) / columns;
   const guilds = [...data.guilds].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).map((guild) => guildTile(guild, width));
-  for (let index = 0; index < guilds.length; index += columns) {
-    const row = guilds.slice(index, index + columns);
-    const height = Math.max(...row.map((entry) => entry.height));
-    cards.push({ height, draw: (y) => row.map((entry, column) => entry.draw(column * (width + GAP), y)).join("") });
+  const limit = MAX_HEIGHT - 400;
+  let placed: { entry: (typeof guilds)[number]; column: number; top: number }[] = [];
+  let heights = [0, 0];
+  const flush = () => {
+    if (!placed.length) return;
+    const block = placed;
+    const height = Math.max(...heights) - GAP;
+    cards.push({ height, draw: (y) => block.map((item) => item.entry.draw(item.column * (width + GAP), y + item.top)).join("") });
+    placed = [];
+    heights = [0, 0];
+  };
+  for (const entry of guilds) {
+    let column = heights[0]! <= heights[1]! ? 0 : 1;
+    if (heights[column]! + entry.height > limit && placed.length) {
+      flush();
+      column = 0;
+    }
+    placed.push({ entry, column, top: heights[column]! });
+    heights[column] = heights[column]! + entry.height + GAP;
   }
+  flush();
   return cards;
 };
 
