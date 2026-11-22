@@ -1,4 +1,5 @@
 // TimorousShadow
+import { existsSync, readFileSync } from "node:fs";
 import sharp from "sharp";
 import type { FleetPoint, ServerPoint, ServerRow } from "./history.js";
 import { centered, measure, papicon, text, type TextStyle, type Weight } from "./type.js";
@@ -54,6 +55,35 @@ const pill = (x: number, middle: number, content: string, options: { size: numbe
   const svg =
     rect(left, middle - options.height / 2, width, options.height, options.height / 2, options.fill, options.opacity ?? 1) +
     centered(content, left + width / 2, middle, { size: options.size, weight: options.weight ?? 600, fill: options.color, anchor: "middle" });
+  return { svg, width };
+};
+
+const flagCache = new Map<string, string | null>();
+let clipId = 0;
+
+const flagData = (code: string): string | null => {
+  const key = code.toLowerCase();
+  if (!/^[a-z]{2}$/.test(key)) return null;
+  if (!flagCache.has(key)) {
+    const file = new URL(`../../node_modules/flag-icons/flags/4x3/${key}.svg`, import.meta.url);
+    flagCache.set(key, existsSync(file) ? `data:image/svg+xml;base64,${readFileSync(file).toString("base64")}` : null);
+  }
+  return flagCache.get(key) ?? null;
+};
+
+const flagPill = (x: number, middle: number, code: string | null, height: number): { svg: string; width: number } => {
+  const data = code ? flagData(code) : null;
+  if (!data) return { svg: "", width: -14 };
+  const pad = Math.round(height * 0.17);
+  const flagH = height - pad * 2;
+  const flagW = (flagH * 4) / 3;
+  const width = flagW + pad * 2;
+  const id = `flag${(clipId += 1)}`;
+  const top = middle - flagH / 2;
+  const svg =
+    rect(x, middle - height / 2, width, height, height / 2, T.fg, 0.08) +
+    `<clipPath id="${id}"><rect x="${(x + pad).toFixed(1)}" y="${top.toFixed(1)}" width="${flagW.toFixed(1)}" height="${flagH.toFixed(1)}" rx="${(flagH / 2).toFixed(1)}"/></clipPath>` +
+    `<image clip-path="url(#${id})" href="${data}" x="${(x + pad).toFixed(1)}" y="${top.toFixed(1)}" width="${flagW.toFixed(1)}" height="${flagH.toFixed(1)}" preserveAspectRatio="xMidYMid slice"/>`;
   return { svg, width };
 };
 
@@ -267,7 +297,7 @@ export const fleetBoard = (servers: readonly ServerRow[]): string => {
     const y = gridTop + Math.floor(index / columns) * (tileH + GAP);
     const middle = y + 54;
     body += tile(x, y, tileW, tileH);
-    const code = server.countryCode ? pill(x + 28, middle, server.countryCode, { size: 24, height: 42, pad: 14, fill: T.fg, opacity: 0.08, color: T.fg }) : { svg: "", width: -14 };
+    const code = flagPill(x + 28, middle, server.countryCode, 44);
     const countStyle = { size: 40, weight: 600 as Weight, fill: T.fg };
     const maxStyle = { size: 28, weight: 500 as Weight, fill: T.fg, opacity: 0.4 };
     const count = String(server.playing);
@@ -341,7 +371,7 @@ export const serverChart = (server: ServerRow, series: readonly ServerPoint[], c
   const title = fit(server.city ?? server.country ?? "Unknown location", { size: 104, weight: 700 }, W - P * 2 - 200);
   const titleStyle = { size: 104, weight: 700 as Weight, fill: T.fg };
   body += text(title, P - 4, 250, titleStyle);
-  if (server.countryCode) body += pill(P + measure(title, titleStyle) + 22, 214, server.countryCode, { size: 28, height: 52, pad: 18, fill: T.fg, opacity: 0.1, color: T.fg }).svg;
+  body += flagPill(P + measure(title, titleStyle) + 22, 214, server.countryCode, 60).svg;
   const behind = context.latestVersion && server.placeVersion ? context.latestVersion - server.placeVersion : 0;
   const facts = [
     [server.region, server.country].filter(Boolean).join(", "),

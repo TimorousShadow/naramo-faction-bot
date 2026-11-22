@@ -72,8 +72,7 @@ const duration = (ms: number): string => {
 
 const latestVersion = (servers: readonly ServerRow[]): number | null => Math.max(0, ...servers.map((server) => server.placeVersion ?? 0)) || null;
 
-const media = (name: string, description: string): MediaGalleryBuilder =>
-  new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${name}`).setDescription(description));
+const media = (name: string): MediaGalleryBuilder => new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${name}`));
 
 const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
 
@@ -169,8 +168,8 @@ const overview = async (range: Range): Promise<View> => {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${icon("grid")} ${GAME_NAME}\n${summary}`))
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details.join("\n")))
-    .addMediaGalleryComponents(media("players.png", `${GAME_NAME} players, ${config.label.toLowerCase()}`))
-    .addMediaGalleryComponents(media("servers.png", `${GAME_NAME} servers by fill and FPS, capacity and regions`));
+    .addMediaGalleryComponents(media("players.png"))
+    .addMediaGalleryComponents(media("servers.png"));
   if (servers.length) container.addActionRowComponents(...pickers(servers, range));
   container
     .addActionRowComponents(rangeButtons(range, "overview"))
@@ -203,7 +202,7 @@ const serverView = async (jobId: string, range: Range): Promise<View> => {
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${icon("globe")} ${place(server)} · ${shortId(server.jobId)}`))
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(details.join("\n")))
-    .addMediaGalleryComponents(media("server.png", `Players, FPS and ping for server ${server.jobId}`));
+    .addMediaGalleryComponents(media("server.png"));
   if (servers.length) container.addActionRowComponents(...pickers(servers, range, jobId));
   container.addActionRowComponents(
     new ActionRowBuilder<ReturnType<typeof button>>().addComponents(
@@ -235,7 +234,7 @@ const heatView = async (range: Range): Promise<View> => {
         ].join("\n"),
       ),
     )
-    .addMediaGalleryComponents(media("week.png", `${GAME_NAME} average players by weekday and hour`))
+    .addMediaGalleryComponents(media("week.png"))
     .addActionRowComponents(rangeButtons(range, "heat"));
   return { components: [container], files: [new AttachmentBuilder(image, { name: "week.png" })] };
 };
