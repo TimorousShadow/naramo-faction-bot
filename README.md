@@ -6,9 +6,9 @@ Discord bot for the Naramo Faction Management server.
 
 `/banlist file:` bans every Discord user ID in a CSV. Only administrators can run it. The file can be one ID per line, or a table with a column named `id`, `user id` or `discord_id`. The bot shows what it found, skips accounts that are already banned, and waits for you to confirm. IDs that Excel rounded (like `1.42E+18`) are reported so you can export them again as text. It's available in Naramo Faction Management and in the servers listed in `config.json`.
 
-The commands below only exist in Naramo Faction Management and need the Access role there.
+The commands below only exist in Naramo Faction Management and need the Access role there. The NOSHA role can use all of them too.
 
-`/globalban user: reason:` bans a user from the servers listed in `config.json` (ANRO, NES and NMP) and records it as a global ban. Leave the reason empty to type it in a form. Members of Naramo Faction Management can only be targeted by the admin role, and admins can't be targeted at all. Server owners, the bot and the person running the command are refused too.
+`/globalban user: reason:` bans a user from the servers listed in `config.json` (ANRO, NES and NMP) and records it as a global ban. Leave the reason empty to type it in a form. Members of Naramo Faction Management can only be targeted by the admin and NOSHA roles, and admins and NOSHA can't be targeted at all. `/banlist` skips NOSHA members too. Server owners, the bot and the person running the command are refused too.
 
 `/globalunban user: reason:` lifts a recorded global ban in every server and logs it. Bans that weren't made with `/globalban` are left alone.
 
@@ -26,7 +26,7 @@ The commands below only exist in Naramo Faction Management and need the Access r
 
 Global bans and unbans are posted to the global ban log channel. Every interaction with the bot in any server (commands with their options, buttons, forms, the result and how long it took) and every server the bot joins or leaves is logged to the watcher channel in Naramo Faction Management, which only the NOSHA role can see. Command replies are visible in the channel.
 
-In the servers listed under `accountAgeKick` in `config.json` (ANRO, NES and NMP, 30 days), the bot kicks anyone who joins with a Discord account younger than that, after a DM saying the account was flagged as a possible alternative account, and logs it to the watcher channel. Bots are left alone, and so is anyone on the allow list. If the bot can't kick someone it sends no DM. This needs the Server Members intent, which is on in the developer portal.
+In the servers listed under `accountAgeKick` in `config.json` (ANRO, NES and NMP, 30 days), the bot kicks anyone who joins with a Discord account younger than that, after a DM saying the account was flagged as a possible alternative account, and logs it to the watcher channel. Bots are left alone, and so are NOSHA members and anyone on the allow list. If the bot can't kick someone it sends no DM. This needs the Server Members intent, which is on in the developer portal.
 
 ## Running it
 

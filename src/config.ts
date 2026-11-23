@@ -8,6 +8,7 @@ export interface ServerEntry {
 
 export const MAIN_GUILD_ID: string = config.mainGuildId;
 export const ADMIN_ROLE_ID: string = config.adminRoleId;
+export const NOSHA_ROLE_ID: string = config.noshaRoleId;
 export const WATCHER_CHANNEL_ID: string = config.watcherChannelId;
 export const GLOBAL_BAN_ROLE_ID: string = config.globalBan.roleId;
 export const GLOBAL_BAN_LOG_CHANNEL_ID: string = config.globalBan.logChannelId;

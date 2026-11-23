@@ -1,5 +1,6 @@
 // TimorousShadow
 import type { GuildMember } from "discord.js";
+import { isNosha } from "./access.js";
 import { minAccountAgeDays } from "./config.js";
 import { allowedAccount } from "./store.js";
 import { panel, v2 } from "./ui.js";
@@ -16,7 +17,7 @@ export const kickNotice = (guildName: string) =>
 
 export const enforceAccountAge = async (member: GuildMember): Promise<void> => {
   const days = minAccountAgeDays(member.guild.id);
-  if (!days || member.user.bot || Date.now() - member.user.createdTimestamp >= days * DAY || allowedAccount(member.id)) return;
+  if (!days || member.user.bot || Date.now() - member.user.createdTimestamp >= days * DAY || allowedAccount(member.id) || (await isNosha(member.client, member.id))) return;
   if (!member.kickable) {
     watchAgeKick(member, days, false, new Error("the bot can't kick this member"));
     return;

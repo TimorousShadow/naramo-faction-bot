@@ -1,13 +1,21 @@
 // TimorousShadow
 import { PermissionFlagsBits, type ButtonInteraction, type ChatInputCommandInteraction, type Client, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
-import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, SERVERS, commandAccessMinRoles, commandAccessRoles } from "./config.js";
+import { ADMIN_ROLE_ID, GLOBAL_BAN_ROLE_ID, MAIN_GUILD_ID, NOSHA_ROLE_ID, SERVERS, commandAccessMinRoles, commandAccessRoles } from "./config.js";
 import { errorPanel, privateV2, v2 } from "./ui.js";
 
 type Gated = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction | StringSelectMenuInteraction;
 
-export const hasAccess = async (client: Client, userId: string): Promise<boolean> => {
-  const member = await client.guilds.cache.get(MAIN_GUILD_ID)?.members.fetch(userId).catch(() => null);
-  return member?.roles.cache.has(GLOBAL_BAN_ROLE_ID) ?? false;
+const mainMember = (client: Client, userId: string) => client.guilds.cache.get(MAIN_GUILD_ID)?.members.fetch(userId).catch(() => null);
+
+export const hasAccess = async (client: Client, userId: string): Promise<boolean> =>
+  (await mainMember(client, userId))?.roles.cache.hasAny(GLOBAL_BAN_ROLE_ID, NOSHA_ROLE_ID) ?? false;
+
+export const isNosha = async (client: Client, userId: string): Promise<boolean> => (await mainMember(client, userId))?.roles.cache.has(NOSHA_ROLE_ID) ?? false;
+
+export const noshaMemberIds = async (client: Client): Promise<string[]> => {
+  const main = client.guilds.cache.get(MAIN_GUILD_ID);
+  await main?.members.fetch().catch(() => null);
+  return [...(main?.roles.cache.get(NOSHA_ROLE_ID)?.members.keys() ?? [])];
 };
 
 const memberRoleIds = (interaction: Gated): string[] => {
@@ -39,7 +47,7 @@ export const ensureAccess = async (interaction: Gated, command: string): Promise
   const allowed = [...localRoles.map((role) => `<@&${role}>`), ...minRoles.map((role) => `<@&${role}> or higher`)];
   const message = allowed.length
     ? `Only ${allowed.join(", ")} can use /${command} in this server.`
-    : `Only members of Naramo Faction Management with the <@&${GLOBAL_BAN_ROLE_ID}> role can use /${command}.`;
+    : `Only members of Naramo Faction Management with the <@&${GLOBAL_BAN_ROLE_ID}> or <@&${NOSHA_ROLE_ID}> role can use /${command}.`;
   const components = [errorPanel("No access", message)];
   if (interaction.isButton() || interaction.isStringSelectMenu()) await interaction.reply({ components, flags: privateV2, allowedMentions: { parse: [] } });
   else if (interaction.deferred || interaction.replied) await interaction.editReply({ flags: v2, components, allowedMentions: { parse: [] } });
@@ -55,8 +63,10 @@ export const targetBlock = async (client: Client, actorId: string, targetId: str
   const main = client.guilds.cache.get(MAIN_GUILD_ID);
   const target = await main?.members.fetch(targetId).catch(() => null);
   if (!target) return null;
-  if (target.roles.cache.has(ADMIN_ROLE_ID)) return `This user has the <@&${ADMIN_ROLE_ID}> role and can't be targeted.`;
+  const shield = [ADMIN_ROLE_ID, NOSHA_ROLE_ID].find((role) => target.roles.cache.has(role));
+  if (shield) return `This user has the <@&${shield}> role and can't be targeted.`;
   const actor = await main?.members.fetch(actorId).catch(() => null);
-  if (!actor?.roles.cache.has(ADMIN_ROLE_ID)) return `This user is a member of Naramo Faction Management. Only <@&${ADMIN_ROLE_ID}> can target members of this server.`;
+  if (!actor?.roles.cache.hasAny(ADMIN_ROLE_ID, NOSHA_ROLE_ID))
+    return `This user is a member of Naramo Faction Management. Only <@&${ADMIN_ROLE_ID}> and <@&${NOSHA_ROLE_ID}> can target members of this server.`;
   return null;
 };

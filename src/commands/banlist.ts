@@ -10,6 +10,7 @@ import {
   type ChatInputCommandInteraction,
   type Guild,
 } from "discord.js";
+import { noshaMemberIds } from "../access.js";
 import { readIdList } from "../id-list.js";
 import { button, errorPanel, line, panel, privateV2, v2 } from "../ui.js";
 
@@ -121,7 +122,7 @@ export const runBanlist = async (interaction: ChatInputCommandInteraction): Prom
     return;
   }
 
-  const protectedIds = new Set([interaction.user.id, interaction.client.user.id, guild.ownerId]);
+  const protectedIds = new Set([interaction.user.id, interaction.client.user.id, guild.ownerId, ...(await noshaMemberIds(interaction.client))]);
   const skipped = list.ids.filter((id) => protectedIds.has(id));
   const already = list.ids.filter((id) => banned.has(id) && !protectedIds.has(id));
   const targets = list.ids.filter((id) => !banned.has(id) && !protectedIds.has(id));
@@ -131,7 +132,7 @@ export const runBanlist = async (interaction: ChatInputCommandInteraction): Prom
     ...(list.column ? [line("filter", "Column", `\`${list.column}\``)] : []),
     ...(already.length ? [line("archive", "Already banned", already.length.toLocaleString("en-US"))] : []),
     ...(list.duplicates ? [line("minus", "Duplicates removed", list.duplicates.toLocaleString("en-US"))] : []),
-    ...(skipped.length ? [line("lock", "Skipped", "you, this bot or the server owner")] : []),
+    ...(skipped.length ? [line("lock", "Skipped", "you, this bot, the server owner or NOSHA")] : []),
     ...notes,
   ];
 
