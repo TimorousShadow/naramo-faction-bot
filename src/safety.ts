@@ -152,6 +152,12 @@ const RAYWARD_PROVIDERS = [
   ["tase", "TASE"],
 ] as const;
 
+const RAYWARD_DISCORD_PROVIDERS = [
+  ["serversweep", "ServerSweep"],
+  ["okappiki", "Okappiki"],
+  ["tase", "TASE"],
+] as const;
+
 const RAYWARD_LABELS: Record<number, string> = { 1: "Flagged", 2: "Confirmed", 3: "Queued", 4: "Provisional flag", 5: "Mixed", 6: "Past offender", 8: "Redacted", 10: "Awaiting human review" };
 
 interface RaywardBody {
@@ -167,9 +173,10 @@ interface RaywardBody {
   };
 }
 
-const rayward = (robloxId: string, provider: string, label: string) =>
-  settle(`${label} via Rayward`, async () => {
-    const { status, body } = await request(`https://roscoe.rayward.app/v2/lookup/${provider}/roblox/user/${robloxId}?excludeInfo=false`, { Authorization: `Bearer ${process.env.RAYWARD_API_KEY}` });
+const rayward = (userId: string, accountType: "roblox" | "discord", provider: string, label: string) =>
+  settle(`${label} via Rayward${accountType === "discord" ? " (Discord)" : ""}`, async () => {
+    const excludeInfo = accountType === "roblox" ? "?excludeInfo=false" : "";
+    const { status, body } = await request(`https://roscoe.rayward.app/v2/lookup/${provider}/${accountType}/user/${encodeURIComponent(userId)}${excludeInfo}`, { Authorization: `Bearer ${process.env.RAYWARD_API_KEY}` });
     if (status !== 200) throw httpError("Rayward", status);
     const data = (body as RaywardBody).data;
     const flagType = Number(data?.flagType ?? 0);
@@ -359,9 +366,12 @@ export const runSafetyChecks = async (discordId: string | null, robloxId: string
     !key ? skipped(name, "not configured") : !data ? skipped(name, needDiscord) : settle(name, async () => watcherSummary(await data, kind));
   const robloxCheck = (name: string, key: string | undefined, run: (id: string) => Promise<CheckResult>): Promise<CheckResult> =>
     !key ? skipped(name, "not configured") : robloxId ? run(robloxId) : skipped(name, needRoblox);
+  const discordCheck = (name: string, key: string | undefined, run: (id: string) => Promise<CheckResult>): Promise<CheckResult> =>
+    !key ? skipped(name, "not configured") : discordId ? run(discordId) : skipped(name, needDiscord);
 
   const jobs = [
-    ...RAYWARD_PROVIDERS.map(([provider, label]) => robloxCheck(`${label} via Rayward`, env.RAYWARD_API_KEY, (id) => rayward(id, provider, label))),
+    ...RAYWARD_PROVIDERS.map(([provider, label]) => robloxCheck(`${label} via Rayward`, env.RAYWARD_API_KEY, (id) => rayward(id, "roblox", provider, label))),
+    ...RAYWARD_DISCORD_PROVIDERS.map(([provider, label]) => discordCheck(`${label} via Rayward`, env.RAYWARD_API_KEY, (id) => rayward(id, "discord", provider, label))),
     watcherCheck("Roblox Watcher", "condo or NSFW", env.ROBLOX_WATCHER_API_KEY, rw),
     watcherCheck("Exploit Watcher", "exploit", env.EXPLOIT_WATCHER_API_KEY, ew),
     robloxCheck("Simmer", env.SIMMER_API_KEY, simmer),
