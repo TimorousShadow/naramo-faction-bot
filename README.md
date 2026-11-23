@@ -14,7 +14,7 @@ The commands below only exist in Naramo Faction Management and need the Access r
 
 `/gbaninfo user:` shows whether someone is globally banned, who banned them and why, any lifted ban, and their ban in each server with the moderator from the audit log.
 
-`/newaccounts allow user: reason:`, `/newaccounts remove user:` and `/newaccounts list` manage the accounts that may join ANRO even though they are new, for example after an account transfer.
+`/newaccounts allow user: reason:`, `/newaccounts remove user:` and `/newaccounts list` manage the accounts that may join ANRO, NES and NMP even though they are new, for example after an account transfer.
 
 `/lookup user:` shows one person across the network: account age, Roblox account through Bloxlink, global ban status, and membership, join date and top roles in each server.
 
@@ -26,7 +26,7 @@ The commands below only exist in Naramo Faction Management and need the Access r
 
 Global bans and unbans are posted to the global ban log channel. Every interaction with the bot in any server (commands with their options, buttons, forms, the result and how long it took) and every server the bot joins or leaves is logged to the watcher channel in Naramo Faction Management, which only the NOSHA role can see. Command replies are visible in the channel.
 
-In the servers listed under `accountAgeKick` in `config.json` (ANRO, 30 days), the bot kicks anyone who joins with a Discord account younger than that, after a DM saying the account was flagged as a possible alternative account, and logs it to the watcher channel. Bots are left alone, and so is anyone on the allow list. If the bot can't kick someone it sends no DM. This needs the Server Members intent, which is on in the developer portal.
+In the servers listed under `accountAgeKick` in `config.json` (ANRO, NES and NMP, 30 days), the bot kicks anyone who joins with a Discord account younger than that, after a DM saying the account was flagged as a possible alternative account, and logs it to the watcher channel. Bots are left alone, and so is anyone on the allow list. If the bot can't kick someone it sends no DM. This needs the Server Members intent, which is on in the developer portal.
 
 ## Running it
 
