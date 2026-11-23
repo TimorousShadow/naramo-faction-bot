@@ -153,6 +153,7 @@ const RAYWARD_PROVIDERS = [
 ] as const;
 
 const RAYWARD_DISCORD_PROVIDERS = [
+  ["rotector", "Rotector"],
   ["serversweep", "ServerSweep"],
   ["okappiki", "Okappiki"],
   ["tase", "TASE"],
