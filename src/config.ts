@@ -26,3 +26,5 @@ export const commandAccessRoles = (guildId: string | null, command: string): rea
   config.commandAccess.filter((rule) => rule.guildId === guildId && rule.command === command).flatMap((rule) => rule.roles);
 
 export const extraCommandsFor = (guildId: string): readonly string[] => config.commandAccess.filter((rule) => rule.guildId === guildId).map((rule) => rule.command);
+
+export const FACTION_TAG_ROLES: Readonly<Record<string, string>> = config.factionTags;

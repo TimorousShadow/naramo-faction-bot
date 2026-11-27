@@ -2,6 +2,7 @@
 import "dotenv/config";
 import { Client, Events, GatewayIntentBits, MessageFlags, REST, type ButtonInteraction, type ChatInputCommandInteraction, type ModalSubmitInteraction } from "discord.js";
 import { enforceAccountAge } from "./age-gate.js";
+import { syncAllFactionTags, syncFactionTag } from "./faction-tags.js";
 import { handleBanlistButton, runBanlist } from "./commands/banlist.js";
 import { runGbaninfo } from "./commands/gbaninfo.js";
 import { runHelp } from "./commands/help.js";
@@ -52,6 +53,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBit
 client.once(Events.ClientReady, (ready) => {
   console.log(`Logged in as ${ready.user.tag}`);
   startCollector();
+  void syncAllFactionTags(ready).catch((error: unknown) => console.error("Faction tag sync failed", error));
 });
 
 client.on(Events.GuildCreate, (guild) => {
@@ -62,6 +64,7 @@ client.on(Events.GuildCreate, (guild) => {
 });
 client.on(Events.GuildDelete, (guild) => watchGuild(client, guild, false));
 client.on(Events.GuildMemberAdd, (member) => void enforceAccountAge(member));
+client.on(Events.GuildMemberUpdate, (_, member) => void syncFactionTag(member));
 
 client.on(Events.InteractionCreate, async (interaction) => {
   const started = Date.now();

@@ -28,6 +28,8 @@ Global bans and unbans are posted to the global ban log channel. Every interacti
 
 In the servers listed under `accountAgeKick` in `config.json` (ANRO, NES and NMP, 30 days), the bot kicks anyone who joins with a Discord account younger than that, after a DM saying the account was flagged as a possible alternative account, and logs it to the watcher channel. Bots are left alone, and so are NOSHA members and anyone on the allow list. If the bot can't kick someone it sends no DM. This needs the Server Members intent, which is on in the developer portal.
 
+In Naramo Faction Management, members with the Faction Leadership role and an NES, NMP or ANRO role get the nickname `<Faction Tag> | RobloxUsername`, with the Roblox account found through Bloxlink. The bot checks everyone when it starts and again whenever a member changes. The tag roles are under `factionTags` in `config.json`.
+
 ## Running it
 
 Needs Node 24. Global bans are stored in SQLite under `DATA_DIR` (default `~/.naramo-faction`). Set `BLOXLINK_API_KEY` and `BLOXLINK_GUILD_ID` to find Roblox accounts; Roblox Watcher is used when Bloxlink has no link. Each safety checker runs when its key is set in `.env` (see `.env.example`).
