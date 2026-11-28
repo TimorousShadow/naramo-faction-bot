@@ -114,6 +114,10 @@ export const handleGlobalbanButton = async (interaction: ButtonInteraction): Pro
     await interaction.update({ components: [errorPanel("Can't ban this user", blocked)], allowedMentions: { parse: [] } });
     return;
   }
+  if (activeGlobalBan(targetId)) {
+    await interaction.update({ components: [errorPanel("Already globally banned", `<@${targetId}> was globally banned in the meantime.`)], allowedMentions: { parse: [] } });
+    return;
+  }
 
   await interaction.update({ components: [panel({ icon: "clock", title: "Banning everywhere", body: "Working through each server." })] });
 
